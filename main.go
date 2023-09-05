@@ -3,177 +3,307 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/patbcole117/tinyC2/listener"
 )
 
-type sessionState uint
-
 const (
-	agentsView		sessionState = iota
-	listenersView
-	mainView
+	primaryColor    = "240"
+	focusColor      = "69"
+	maxWidth        = 100
+	maxHeight       = 15
+	buttonWidth     = 15
+	buttonHeight    = 1
+	borderChar      = "-"
+    headerBar       = "-"
+    headerText      = "tinyC2"
 )
 
 var (
-	textBoxModelStyle = lipgloss.NewStyle().
-		Width(15).
-		Height(5).
-		Align(lipgloss.Center, lipgloss.Center).
-		BorderStyle(lipgloss.HiddenBorder())
-	focusedtextBoxModelStyle = lipgloss.NewStyle().
-		Width(15).
-		Height(5).
-		Align(lipgloss.Center, lipgloss.Center).
+	headerStyle = func() lipgloss.Style {
+		b := lipgloss.RoundedBorder()
+		b.Right = headerBar
+        b.Left = headerBar
+		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
+	}()
+
+	infoBoxStyle = lipgloss.NewStyle().
+        Width(maxWidth).
+        Height(maxHeight).
+        Align(lipgloss.Center, lipgloss.Center).
+        BorderForeground(lipgloss.Color(primaryColor))
+
+	focusTextBoxStyle = lipgloss.NewStyle().
+        Width(buttonWidth).
+        Height(buttonHeight).
+        Align(lipgloss.Center, lipgloss.Center).
+        BorderStyle(lipgloss.NormalBorder()).
+        BorderForeground(lipgloss.Color(focusColor))
+
+    baseTableStyle = lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("69"))
-	rightDisplayTextBoxModelStyle = lipgloss.NewStyle().
-		Width(100).
-		Height(19).
-		Align(lipgloss.Center, lipgloss.Center).
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240"))
-	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		BorderForeground(lipgloss.Color(primaryColor))
+
+	textBoxStyle = lipgloss.NewStyle().
+        Width(buttonWidth).
+        Height(buttonHeight).
+        Align(lipgloss.Center, lipgloss.Center).
+        BorderStyle(lipgloss.HiddenBorder())
+)
+
+type sessionState uint
+const (
+	mainAgentsState sessionState = iota
+	agentState
+    mainCLIState
+	listenersState
+    listenerNewState
+    listenerInfoState
+	listenerEditState
+	mainState
+)
+
+type viewFocus uint
+const (
+	mainAgentsFocus viewFocus = iota
+	mainListenersFocus
+	mainCLIFocus
+    listenersNewFocus
+    listenersEditFocus
+    listenersDeleteFocus
+    listenersInfoFocus
+    
 )
 
 type textBoxModel struct {
-	text	string	
+	text string
 }
 
-type mainModel struct {
-	state   			sessionState
-	focus				string
-	rightDisplay 		textBoxModel
-	agentsBox		textBoxModel
-	listenersBox		textBoxModel
-	exitBox 			textBoxModel
-	listenersModel		listener.ListenersModel
+type MainModel struct {
+	state               sessionState
+	focus               viewFocus
+	mainAgentsBox      textBoxModel
+	mainListenersBox    textBoxModel
+	mainCLIBox         textBoxModel
+	infoBox             textBoxModel
+    listenersNewBox     textBoxModel      
+    listenersEditBox    textBoxModel
+    listenersDeleteBox  textBoxModel
+    listenersInfoBox    textBoxModel
+
 }
 
-func newModel() mainModel {
-	m := mainModel{state: mainView, focus: "agents"}
-	m.rightDisplay		= textBoxModel{text: "TODO: ASCII art."}
-	m.agentsBox 		= textBoxModel{text: "Agents"}
-	m.listenersBox	= textBoxModel{text: "Listeners"}
-	m.exitBox		= textBoxModel{text: "Exit"}
-	m.listenersModel	= listener.NewModel()
+func NewModel() MainModel {
+	m := MainModel{
+		state:                  mainState,
+		focus:                  mainAgentsFocus,
+		mainAgentsBox:          textBoxModel{text: "Agents"},
+		mainListenersBox:       textBoxModel{text: "Listeners"},
+		mainCLIBox:             textBoxModel{text: "cli"},
+		infoBox:                textBoxModel{text: "TODO infoBox.text"},
+        listenersNewBox:        textBoxModel{text: "New"},   
+        listenersEditBox:       textBoxModel{text: "Edit"},
+        listenersDeleteBox:     textBoxModel{text: "Delete"},
+        listenersInfoBox:       textBoxModel{text: "View"},
+	}
 	return m
 }
 
-func (m mainModel) Init() tea.Cmd {
+func (m MainModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	var cmds []tea.Cmd
+func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var (
+		//cmd tea.Cmd
+		cmds []tea.Cmd
+	)
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch m.state {
-		case listenersView:
-			if !m.listenersModel.Back {
-				newListenersModel, newCmd := m.listenersModel.Update(msg)
-				m.listenersModel = newListenersModel
-				cmd = newCmd
-			} else {
-				m.state = mainView
-				m.listenersModel.Back = false
-				m.listenersModel.Focus = "table"
-				m.listenersModel.HelpBox.Text = "Select a listener to configure."
-				m.focus = "agents"
-			}
-		default:
-			m.state = mainView
-			switch msg.String() {
-			case "tab":
-				switch m.focus {
-				case "agents":
-					m.focus = "listeners"
-					m.rightDisplay.text = "Display and configure listeners."
-				case "listeners":
-					m.focus = "exit"
-					m.rightDisplay.text = "Exit."
-				default:
-					m.focus = "agents"
-					m.rightDisplay.text = "Display and configure agents."
-	
-				}
-	
-			case "enter", "n":
-				switch m.focus {
-				case "agents":
-					m.state = agentsView
-				case "listeners":
-					m.state = listenersView
-				case "exit":
-					m.rightDisplay.text = "Goodbye!"
-					return m, tea.Quit
-	
-				}
-			}
-		}
-
 		switch msg.String() {
 		case "ctrl+c", "esc", "q":
-			if m.state == mainView {
-				m.rightDisplay.text = "Goodbye!"
-				return m, tea.Quit
-			}
-				m.state = mainView
+            switch m.state {
+            case mainState:
+                return m, tea.Quit
+            default:
+                m.state = mainState
+                m.focus = mainAgentsFocus
+            }
+			
+		case "tab":
+			m.focus = m.NextFocus()
+        case "enter", "n":
+            m.state, m.focus = m.NextState()
 		}
 	}
-	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
 
-func (m mainModel) View() string {
-	var s string
+func (m MainModel) NextFocus() viewFocus {
+    s := m.state
+    f := m.focus
+	switch s {
+	case mainState:
+		switch m.focus {
+		case mainAgentsFocus:
+			f = mainListenersFocus
+		case mainListenersFocus:
+			f = mainCLIFocus
+		case mainCLIFocus:
+			f = mainAgentsFocus
+		}
+    case listenersState:
+        switch m.focus {
+        case listenersNewFocus:
+            f = listenersEditFocus
+        case listenersEditFocus: 
+            f = listenersInfoFocus
+        case listenersInfoFocus:
+            f = listenersDeleteFocus
+        case listenersDeleteFocus:
+            f = listenersNewFocus
+        }
+	}
+	return f
+}
+
+func (m MainModel) NextState() (sessionState, viewFocus) {
+    s := m.state
+    f := m.focus
+    switch f {
+    case mainAgentsFocus:
+        s = mainAgentsState
+    case mainListenersFocus:
+        s = listenersState
+        f = listenersNewFocus
+    case mainCLIFocus:
+        s = mainCLIState
+    case listenersNewFocus:
+        s = listenerNewState
+    case listenersEditFocus:
+        s = listenerEditState
+    case listenersDeleteFocus:
+        fmt.Println("[!] TODO: Delete listener.")
+    case listenersInfoFocus:
+        s = listenerInfoState
+    }
+    return s, f
+} 
+
+func (m MainModel) View() string {
 	switch m.state {
-	case agentsView:
-		//TODO
-		s = m.MainView()
-	case listenersView:
-		s = m.listenersModel.View()
-	default:
-		s = m.MainView()
+	case mainState:
+		return m.mainView()
+    case listenersState:
+        return m.listenersView()
 	}
-	return s
-
+	return ""
 }
 
-func (m mainModel) MainView() string {
-	var s string
-	var lbox string
-	if m.focus == "agents" {
-		lbox = lipgloss.JoinVertical(lipgloss.Top, focusedtextBoxModelStyle.Render(m.agentsBox.text),
-		textBoxModelStyle.Render(m.listenersBox.text), textBoxModelStyle.Render(m.exitBox.text))
-	} else if m.focus == "listeners" {
-		lbox = lipgloss.JoinVertical(lipgloss.Top, textBoxModelStyle.Render(m.agentsBox.text),
-		focusedtextBoxModelStyle.Render(m.listenersBox.text),	textBoxModelStyle.Render(m.exitBox.text))
-	} else {
-		lbox = lipgloss.JoinVertical(lipgloss.Top, textBoxModelStyle.Render(m.agentsBox.text),
-		textBoxModelStyle.Render(m.listenersBox.text), focusedtextBoxModelStyle.Render(m.exitBox.text))
+func (m MainModel) mainView() string {
+	var buttons string
+	switch m.focus {
+	case mainAgentsFocus:
+		buttons = lipgloss.JoinHorizontal(lipgloss.Top, focusTextBoxStyle.Render(m.mainAgentsBox.text),
+			textBoxStyle.Render(m.mainListenersBox.text), textBoxStyle.Render(m.mainCLIBox.text))
+	case mainListenersFocus:
+		buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.mainAgentsBox.text),
+			focusTextBoxStyle.Render(m.mainListenersBox.text), textBoxStyle.Render(m.mainCLIBox.text))
+	case mainCLIFocus:
+		buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.mainAgentsBox.text),
+			textBoxStyle.Render(m.mainListenersBox.text), focusTextBoxStyle.Render(m.mainCLIBox.text))
 	}
-	s += lipgloss.JoinHorizontal(lipgloss.Top, lbox, rightDisplayTextBoxModelStyle.Render(m.rightDisplay.text))
-	s += helpStyle.Render(fmt.Sprintf("\ntab: focus next • n: select %s • q: exit\n", m.focus))
+	s := lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText), infoBoxStyle.Render(m.infoBox.text), m.getFooter(), buttons)
 	return s
 }
 
-func (m mainModel) currentFocusedModel() string {
-	if m.state == agentsView {
-		return "agents"
-	} else if m.state == listenersView {
-		return "listeners"
-	} else {
-		return "exit"
+func (m MainModel) listenersView() string {
+	var buttons string
+	switch m.focus {
+	case listenersNewFocus:
+		buttons = lipgloss.JoinHorizontal(lipgloss.Top, focusTextBoxStyle.Render(m.listenersNewBox.text),
+			textBoxStyle.Render(m.listenersEditBox.text), textBoxStyle.Render(m.listenersInfoBox.text), textBoxStyle.Render(m.listenersDeleteBox.text))
+	case listenersEditFocus:
+		buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.listenersNewBox.text),
+            focusTextBoxStyle.Render(m.listenersEditBox.text), textBoxStyle.Render(m.listenersInfoBox.text), textBoxStyle.Render(m.listenersDeleteBox.text))
+	case listenersInfoFocus:
+		buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.listenersNewBox.text),
+			textBoxStyle.Render(m.listenersEditBox.text), focusTextBoxStyle.Render(m.listenersInfoBox.text), textBoxStyle.Render(m.listenersDeleteBox.text))
+    case listenersDeleteFocus:
+        buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.listenersNewBox.text),
+            textBoxStyle.Render(m.listenersEditBox.text), textBoxStyle.Render(m.listenersInfoBox.text), focusTextBoxStyle.Render(m.listenersDeleteBox.text))
 	}
+
+	s := lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText), baseTableStyle.Render(m.getDemoTable().View()), m.getFooter(), buttons)
+	return s
+}
+
+func (m MainModel) getHeader(s string) string {
+    lline := strings.Repeat(borderChar, 3)
+	text := headerStyle.Render(s)
+	rline := strings.Repeat(borderChar, maxWidth - (len(lline) + len(headerText) + 4))
+	return lipgloss.JoinHorizontal(lipgloss.Center, lline, text, rline)
+}
+
+func (m MainModel) getFooter() string {
+	line := strings.Repeat(borderChar, maxWidth)
+	return lipgloss.JoinHorizontal(lipgloss.Center, line)
 }
 
 func main() {
-	p := tea.NewProgram(newModel())
+	p := tea.NewProgram(NewModel())
 	if _, err := p.Run(); err != nil {
 		log.Println(err)
 	}
+}
+
+func (m MainModel) getDemoTable() table.Model {
+    numCol := 4
+    tWidth := (maxWidth / numCol) - ((2 * numCol) / numCol)
+    tHeight := maxHeight - 4
+
+	columns := []table.Column{
+		{Title: "Rank",         Width: tWidth},
+		{Title: "City",         Width: tWidth},
+		{Title: "Country",      Width: tWidth},
+		{Title: "Population",   Width: tWidth},
+	}
+
+	rows := []table.Row{
+		{"1", "Tokyo", "Japan", "37,274,000"},
+		{"2", "Delhi", "India", "32,065,760"},
+		{"3", "Shanghai", "China", "28,516,904"},
+		{"4", "Dhaka", "Bangladesh", "22,478,116"},
+		{"5", "São Paulo", "Brazil", "22,429,800"},
+		{"6", "Mexico City", "Mexico", "22,085,140"},
+		{"7", "Cairo", "Egypt", "21,750,020"},
+		{"8", "Beijing", "China", "21,333,332"},
+		{"9", "Mumbai", "India", "20,961,472"},
+		{"10", "Osaka", "Japan", "19,059,856"},
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(tHeight),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color(primaryColor)).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color(primaryColor)).
+		Background(lipgloss.Color(focusColor)).
+		Bold(false)
+	t.SetStyles(s)
+
+	return t
 }
