@@ -36,6 +36,12 @@ var (
         Align(lipgloss.Center, lipgloss.Center).
         BorderForeground(lipgloss.Color(primaryColor))
 
+	buttonStyle = lipgloss.NewStyle().
+        Width(buttonWidth).
+        Height(buttonHeight).
+        Align(lipgloss.Center, lipgloss.Center).
+        BorderStyle(lipgloss.HiddenBorder())
+
 	focusButtonStyle = lipgloss.NewStyle().
         Width(buttonWidth).
         Height(buttonHeight).
@@ -47,11 +53,8 @@ var (
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color(primaryColor))
 
-	buttonStyle = lipgloss.NewStyle().
-        Width(buttonWidth).
-        Height(buttonHeight).
-        Align(lipgloss.Center, lipgloss.Center).
-        BorderStyle(lipgloss.HiddenBorder())
+    inputTitleStyle = lipgloss.NewStyle()
+    inputBoxStyle   = lipgloss.NewStyle()
 )
 
 type sessionState uint
@@ -70,6 +73,11 @@ const (
 type button struct {
     text    string
     state   sessionState
+}
+
+type labledInput struct {
+    title   string
+    input   textinput.Model
 }
 
 var (
@@ -206,6 +214,15 @@ func (m MainModel) View() string {
             m.listenersTable.SelectedRow()[1])
 	}
 	return ""
+}
+
+func (m MainModel) getInputView(labels []labledInputs) string {
+    var iview string
+    for i, l := range labels {
+        temp := lipgloss.JoinHorizaontal(lipgloss.Top,
+        inputTitleStyle.Render(strings.ToUpper(l.title)),
+        inputBoxStyle.Render(l.input))
+    }
 }
 
 func (m MainModel) getButtonRow() string {

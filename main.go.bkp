@@ -15,7 +15,7 @@ const (
 	focusColor      = "69"
 	maxWidth        = 75
 	maxHeight       = 15
-	buttonWidth     = 15
+	buttonWidth     = 10
 	buttonHeight    = 1
 	borderChar      = "-"
     headerBar       = "-"
@@ -36,7 +36,7 @@ var (
         Align(lipgloss.Center, lipgloss.Center).
         BorderForeground(lipgloss.Color(primaryColor))
 
-	focusTextBoxStyle = lipgloss.NewStyle().
+	focusButtonStyle = lipgloss.NewStyle().
         Width(buttonWidth).
         Height(buttonHeight).
         Align(lipgloss.Center, lipgloss.Center).
@@ -47,7 +47,7 @@ var (
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color(primaryColor))
 
-	textBoxStyle = lipgloss.NewStyle().
+	buttonStyle = lipgloss.NewStyle().
         Width(buttonWidth).
         Height(buttonHeight).
         Align(lipgloss.Center, lipgloss.Center).
@@ -56,7 +56,7 @@ var (
 
 type sessionState uint
 const (
-	agentsState             sessionState = iota
+	agentsState         sessionState = iota
 	agentInfoState
 	agentEditState
     cliState
@@ -67,53 +67,49 @@ const (
 	mainState
 )
 
-type viewFocus uint
-const (
-    listenersNewFocus       viewFocus = iota
-    listenersEditFocus
-    listenersDeleteFocus
-    listenersInfoFocus
-    listenerEditNameFocus
-    listenerEditIpFocus
-    listenerEditPortFocus
-    listenerEditSaveFocus
-    listenerEditCancelFocus
-	mainAgentsFocus
-	mainListenersFocus
-	mainCLIFocus
-)
-
-type textBoxModel struct {
-	text string
+type button struct {
+    text    string
+    state   sessionState
 }
+
+var (
+    mainButtons = []button {
+        {text: "Agents",     state: agentsState},
+        {text: "Listeners",  state: listenersState},
+        {text: "cli",        state: cliState},
+    }
+
+    listenersButtons    = []button {
+        {text: "New",       state: listenerNewState},
+        {text: "Edit",      state: listenerEditState},
+        {text: "Info",      state: listenerInfoState},
+        {text: "Start",     state: listenersState},
+        {text: "Stop",      state: listenersState},
+        {text: "Delete",    state: listenersState},
+    }
+
+    listenerEditButtons = []button {
+        {text: "Save",      state: listenersState},
+        {text: "Cancel",    state: listenersState},
+    }
+)
 
 type MainModel struct {
 	state           sessionState
-	focus           viewFocus
-	agentsBox       textBoxModel
-	listenersBox    textBoxModel
-	cliBox          textBoxModel
-	infoBox         textBoxModel
-	bigBox          textBoxModel
-    newBox          textBoxModel      
-    editBox         textBoxModel
-    deleteBox       textBoxModel
+	focus           int 
+    buttons         []button     
+    bigBox          string
     listenersTable  table.Model
-
 }
+
+
 
 func NewModel() MainModel {
 	m := MainModel{
-		state:          mainState,
-		focus:          mainAgentsFocus,
-		agentsBox:      textBoxModel{text: "Agents"},
-		bigBox:         textBoxModel{text: "TODO bigBox.text"},
-		cliBox:         textBoxModel{text: "cli"},
-        deleteBox:      textBoxModel{text: "Delete"},
-        editBox:        textBoxModel{text: "Edit"},
-        infoBox:        textBoxModel{text: "View"},
-		listenersBox:   textBoxModel{text: "Listeners"},
-        newBox:         textBoxModel{text: "New"},   
+		state:      mainState,
+		focus:      0, 
+        buttons:    mainButtons,
+        bigBox:     "TODO: bigBox string.",
 	}
         m.listenersTable = m.getDemoTable()
 	return m
@@ -128,7 +124,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd tea.Cmd
 		cmds []tea.Cmd
 	)
-
+    prevState := m.state
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -137,129 +133,93 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             case mainState:
                 return m, tea.Quit
             default:
-                m.state = mainState
-                m.focus = mainAgentsFocus
-                m.listenersTable.Blur()
-                m.listenersTable.SetCursor(0)
+                m.state     = mainState
+                m.buttons   = mainButtons
             }
 			
 		case "tab":
 			m.focus = m.NextFocus()
         case "enter", "n":
-            m.state, m.focus = m.NextState()
-            if m.state == listenersState {
-                m.listenersTable.Focus()
-            }
+            m.state, m.buttons, m.focus = m.NextState()
 		}
 	}
+    if m.state != prevState {
+        m.focus = 0
+        switch m.state {
+        case listenersState:
+            m.listenersTable.Focus()
+            m.listenersTable.SetCursor(0)
+        case listenerEditState:
+            m.listenersTable.Blur()
+        default:
+            m.listenersTable.Blur()
+            m.listenersTable.SetCursor(0)
+        }
+    }
     m.listenersTable, cmd = m.listenersTable.Update(msg)
     cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
 
-func (m MainModel) NextFocus() viewFocus {
-    s := m.state
-    f := m.focus
-	switch s {
-	case mainState:
-		switch m.focus {
-		case mainAgentsFocus:
-			f = mainListenersFocus
-		case mainListenersFocus:
-			f = mainCLIFocus
-		case mainCLIFocus:
-			f = mainAgentsFocus
-		}
-    case listenersState:
-        switch m.focus {
-        case listenersNewFocus:
-            f = listenersEditFocus
-        case listenersEditFocus: 
-            f = listenersInfoFocus
-        case listenersInfoFocus:
-            f = listenersDeleteFocus
-        case listenersDeleteFocus:
-            f = listenersNewFocus
-        }
-	}
+func (m MainModel) NextFocus() int {
+    f := m.focus + 1
+    if f >= len(m.buttons) {
+        return 0
+    }
 	return f
 }
 
-func (m MainModel) NextState() (sessionState, viewFocus) {
-    s := m.state
-    f := m.focus
-    switch f {
-    case mainAgentsFocus:
-        s = agentsState
-    case mainListenersFocus:
-        s = listenersState
-        f = listenersNewFocus
-    case mainCLIFocus:
-        s = cliState
-    case listenersNewFocus:
-        s = listenerNewState
-    case listenersEditFocus:
-        s = listenerEditState
-    case listenersDeleteFocus:
-        fmt.Printf("TODO: Delete listener %s.", m.listenersTable.SelectedRow()[1])
-    case listenersInfoFocus:
-        s = listenerInfoState
+func (m MainModel) NextState() (sessionState, []button, int) {
+    f := 0
+    s := m.buttons[m.focus].state
+    var b []button
+    switch s {
+    case listenersState:
+        b = listenersButtons
+    case listenerEditState:
+        b = listenerEditButtons
+    default:
+        b = mainButtons
     }
-    return s, f
+    if s == m.state {
+        f = m.focus
+    }
+    return s, b, f
 } 
 
 func (m MainModel) View() string {
+    b := m.getButtonRow()
 	switch m.state {
 	case mainState:
-		return m.mainView()
+        return lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText),
+            bigBoxStyle.Render(m.bigBox), m.getFooter(), b)
     case listenersState:
-        return m.listenersView()
+        return lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText),
+            baseTableStyle.Render(m.listenersTable.View()), m.getFooter(), b)
     case listenerNewState:
         return fmt.Sprintf("TODO: New listener.")
     case listenerEditState:
-        return fmt.Sprintf("TODO: Edit listener %s.", m.listenersTable.SelectedRow()[1])
+        return lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText),
+            bigBoxStyle.Render(m.listenersTable.SelectedRow()[1]), m.getFooter(), b)
     case listenerInfoState:
-        return fmt.Sprintf("TODO: View info of listener %s.", m.listenersTable.SelectedRow()[1])
+        return fmt.Sprintf("TODO: View info of listener %s.",
+            m.listenersTable.SelectedRow()[1])
 	}
 	return ""
 }
 
-func (m MainModel) mainView() string {
-	var buttons string
-	switch m.focus {
-	case mainAgentsFocus:
-		buttons = lipgloss.JoinHorizontal(lipgloss.Top, focusTextBoxStyle.Render(m.agentsBox.text),
-			textBoxStyle.Render(m.listenersBox.text), textBoxStyle.Render(m.cliBox.text))
-	case mainListenersFocus:
-		buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.agentsBox.text),
-			focusTextBoxStyle.Render(m.listenersBox.text), textBoxStyle.Render(m.cliBox.text))
-	case mainCLIFocus:
-		buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.agentsBox.text),
-			textBoxStyle.Render(m.listenersBox.text), focusTextBoxStyle.Render(m.cliBox.text))
-	}
-	s := lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText), bigBoxStyle.Render(m.bigBox.text), m.getFooter(), buttons)
-	return s
-}
-
-func (m MainModel) listenersView() string {
-	var buttons string
-	switch m.focus {
-	case listenersNewFocus:
-		buttons = lipgloss.JoinHorizontal(lipgloss.Top, focusTextBoxStyle.Render(m.newBox.text),
-			textBoxStyle.Render(m.editBox.text), textBoxStyle.Render(m.infoBox.text), textBoxStyle.Render(m.deleteBox.text))
-	case listenersEditFocus:
-		buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.newBox.text),
-            focusTextBoxStyle.Render(m.editBox.text), textBoxStyle.Render(m.infoBox.text), textBoxStyle.Render(m.deleteBox.text))
-	case listenersInfoFocus:
-		buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.newBox.text),
-			textBoxStyle.Render(m.editBox.text), focusTextBoxStyle.Render(m.infoBox.text), textBoxStyle.Render(m.deleteBox.text))
-    case listenersDeleteFocus:
-        buttons = lipgloss.JoinHorizontal(lipgloss.Top, textBoxStyle.Render(m.newBox.text),
-            textBoxStyle.Render(m.editBox.text), textBoxStyle.Render(m.infoBox.text), focusTextBoxStyle.Render(m.deleteBox.text))
-	}
-
-	s := lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText), baseTableStyle.Render(m.listenersTable.View()), m.getFooter(), buttons)
-	return s
+func (m MainModel) getButtonRow() string {
+    var bview string
+    for i, b := range m.buttons {
+        if i == m.focus {
+            bview = lipgloss.JoinHorizontal(lipgloss.Top, bview,
+            focusButtonStyle.Render(b.text))
+        } else {
+            bview = lipgloss.JoinHorizontal(lipgloss.Top, bview,
+            buttonStyle.Render(b.text))
+        }
+    }
+    return bview
 }
 
 func (m MainModel) getHeader(s string) string {
