@@ -15,7 +15,7 @@ const (
 	focusColor      = "69"
 	maxWidth        = 75
 	maxHeight       = 15
-	buttonWidth     = 15
+	buttonWidth     = 10
 	buttonHeight    = 1
 	borderChar      = "-"
     headerBar       = "-"
@@ -83,6 +83,8 @@ var (
         {text: "New",       state: listenerNewState},
         {text: "Edit",      state: listenerEditState},
         {text: "Info",      state: listenerInfoState},
+        {text: "Start",     state: listenersState},
+        {text: "Stop",      state: listenersState},
         {text: "Delete",    state: listenersState},
     }
 
