@@ -3,7 +3,9 @@ package main
 import (
     "fmt"
 	"log"
+	"strconv"
 	"strings"
+	"math/rand"
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -12,9 +14,9 @@ import (
 	"github.com/patbcole117/tinyC2/banner"
 )
 
-const (
+var (
 	secondaryColor    = "240"
-	primaryColor      = "47"
+	primaryColor      = strconv.Itoa(rand.Intn(230))
 	maxWidth        = 75
 	maxHeight       = 15	
 	buttonWidth     = 11
@@ -199,6 +201,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         m.listenersTable.Blur()
 		m.listenersTable.SetCursor(0)
 		m.bigBox = banner.GetRandomBanner()
+
         switch m.state {
         case listenersState:
             m.listenersTable.Focus()
