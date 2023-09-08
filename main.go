@@ -9,14 +9,15 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/patbcole117/tinyC2/banner"
 )
 
 const (
 	secondaryColor    = "240"
-	primaryColor      = "69"
+	primaryColor      = "47"
 	maxWidth        = 75
-	maxHeight       = 15
-	buttonWidth     = 10
+	maxHeight       = 15	
+	buttonWidth     = 11
 	buttonHeight    = 1
 	borderChar      = "-"
     headerBar       = "-"
@@ -128,7 +129,7 @@ func NewModel() MainModel {
 		state:      mainState,
 		focus:      0, 
         buttons:    mainButtons,
-        bigBox:     "TODO: bigBox string.",
+        bigBox:     banner.GetRandomBanner(),
 	}
     m.listenersTable = m.getDemoTableViewComponent()
 	return m
@@ -195,7 +196,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
     if m.state != prevState {
-        m.resetAllComponents()
+        m.listenersTable.Blur()
+		m.listenersTable.SetCursor(0)
+		m.bigBox = banner.GetRandomBanner()
         switch m.state {
         case listenersState:
             m.listenersTable.Focus()
@@ -209,11 +212,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     m.listenersTable, cmd = m.listenersTable.Update(msg)
     cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
-}
-
-func (m MainModel) resetAllComponents() {
-	m.listenersTable.Blur()
-	m.listenersTable.SetCursor(0)
 }
 
 func (m MainModel) NextFocus() int {
