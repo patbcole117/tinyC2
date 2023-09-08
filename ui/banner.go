@@ -1,4 +1,4 @@
-package banner
+package ui
 
 import (
 	"math/rand"

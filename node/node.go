@@ -22,11 +22,13 @@ const (
 )
 
 type Node struct {
+	Id  	string		`json:"id"`
 	Name   	string   	`json:"name"`
 	Groups 	[]string 	`json:"groups"`
 	Ip     	string   	`json:"ip"`
 	Port   	int      	`json:"port"`
 	Status 	int      	`json:"status"`
+	Hello 	time.Time   `json:"hello"`
 	server 	*http.Server
 }
 
@@ -76,6 +78,15 @@ func (n *Node) SrvStop() error {
 	time.Sleep(SERVER_DEFAULT_TIMEOUT)
 	n.Status = STOPPED
 	return err
+}
+
+func (n *Node) UnmarshalJSON(b []byte) error {
+	var newNode Node
+	if err := json.Unmarshal(b, &newNode); err != nil {
+		return err
+	}
+	*n = newNode
+	return nil
 }
 
 func (n *Node) ToJson() ([]byte) {

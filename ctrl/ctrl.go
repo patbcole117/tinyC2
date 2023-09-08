@@ -26,7 +26,7 @@ func v1 (w http.ResponseWriter, r *http.Request) error {
 }
 
 func v1Lis (w http.ResponseWriter, r *http.Request) error {
-    w.Write( c.JSON(&fiber.Map{"data": "v1Lis"})
+    w.Write()
 }
 
 func v1LisNew (w http.ResponseWriter, r *http.Request) error {

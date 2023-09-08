@@ -1,21 +1,24 @@
-package main
+package ui
 
 import (
     "fmt"
 	"log"
+	"strconv"
 	"strings"
+	"math/rand"
 
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-const (
-	primaryColor    = "240"
-	focusColor      = "69"
+var (
+	secondaryColor    = "240"
+	primaryColor      = strconv.Itoa(rand.Intn(230))
 	maxWidth        = 75
-	maxHeight       = 15
-	buttonWidth     = 10
+	maxHeight       = 15	
+	buttonWidth     = 11
 	buttonHeight    = 1
 	borderChar      = "-"
     headerBar       = "-"
@@ -34,24 +37,35 @@ var (
         Width(maxWidth).
         Height(maxHeight).
         Align(lipgloss.Center, lipgloss.Center).
-        BorderForeground(lipgloss.Color(primaryColor))
-
-	focusButtonStyle = lipgloss.NewStyle().
-        Width(buttonWidth).
-        Height(buttonHeight).
-        Align(lipgloss.Center, lipgloss.Center).
-        BorderStyle(lipgloss.NormalBorder()).
-        BorderForeground(lipgloss.Color(focusColor))
-
-    baseTableStyle = lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color(primaryColor))
+        BorderForeground(lipgloss.Color(secondaryColor))
 
 	buttonStyle = lipgloss.NewStyle().
         Width(buttonWidth).
         Height(buttonHeight).
         Align(lipgloss.Center, lipgloss.Center).
         BorderStyle(lipgloss.HiddenBorder())
+
+	focusButtonStyle = lipgloss.NewStyle().
+        Width(buttonWidth).
+        Height(buttonHeight).
+        Align(lipgloss.Center, lipgloss.Center).
+        BorderStyle(lipgloss.NormalBorder()).
+        BorderForeground(lipgloss.Color(primaryColor))
+
+    baseTableStyle = lipgloss.NewStyle().
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color(secondaryColor))
+
+	inputTitleStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(primaryColor)).
+		Bold(true)
+
+	inputBoxStyle = lipgloss.NewStyle().
+		Width(maxWidth).
+		Height(maxHeight).
+		Align(lipgloss.Left, lipgloss.Center).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color(secondaryColor))
 )
 
 type sessionState uint
@@ -66,11 +80,6 @@ const (
     listenerNewState
 	mainState
 )
-
-type button struct {
-    text    string
-    state   sessionState
-}
 
 var (
     mainButtons = []button {
@@ -100,19 +109,50 @@ type MainModel struct {
     buttons         []button     
     bigBox          string
     listenersTable  table.Model
+	listenersInput	InputModel
 }
 
+type InputModel struct {
+	Labels	[]string
+	Inputs 	[]textinput.Model
+	Focus 	int
+	Err 	error
+}
 
+type button struct {
+    text    string
+    state   sessionState
+}
 
 func NewModel() MainModel {
-	m := MainModel{
+	m := MainModel {
 		state:      mainState,
 		focus:      0, 
         buttons:    mainButtons,
-        bigBox:     "TODO: bigBox string.",
+        bigBox:     GetRandomBanner(),
 	}
-        m.listenersTable = m.getDemoTable()
+    m.listenersTable = m.getDemoTableViewComponent()
 	return m
+}
+
+func (m InputModel) NewInputModel(labels, placeholders []string) InputModel {
+	var inModels []textinput.Model = make([]textinput.Model, len(labels))
+	for i := range labels {
+		inModels[i] = textinput.New()
+		inModels[i].Placeholder = placeholders[i]
+		inModels[i].CharLimit = 25
+		inModels[i].Width = 25
+		inModels[i].Prompt = "> "
+	}
+
+	r := InputModel {
+		Labels: labels,
+		Inputs:	inModels,
+		Focus: 0,
+		Err: nil,
+	}
+	//r.Inputs[m.Focus].Focus()
+	return r
 }
 
 func (m MainModel) Init() tea.Cmd {
@@ -120,15 +160,14 @@ func (m MainModel) Init() tea.Cmd {
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var (
-		cmd tea.Cmd
-		cmds []tea.Cmd
-	)
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
     prevState := m.state
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc", "q":
+		case "ctrl+c", "esc":
             switch m.state {
             case mainState:
                 return m, tea.Quit
@@ -136,24 +175,39 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                 m.state     = mainState
                 m.buttons   = mainButtons
             }
-			
 		case "tab":
 			m.focus = m.NextFocus()
-        case "enter", "n":
-            m.state, m.buttons, m.focus = m.NextState()
+        case "enter":
+			if m.focus >= len(m.buttons){
+				m.focus = m.NextFocus()
+			} else {
+				m.state, m.buttons, m.focus = m.NextState()
+			}
+            
 		}
 	}
+
+	switch m.state {
+	case listenerEditState:
+		for i := range m.listenersInput.Inputs {
+			m.listenersInput.Inputs[i], cmd = m.listenersInput.Inputs[i].Update(msg)
+			cmds = append(cmds, cmd)
+		}
+	}
+
     if m.state != prevState {
-        m.focus = 0
+        m.listenersTable.Blur()
+		m.listenersTable.SetCursor(0)
+		m.bigBox = GetRandomBanner()
+
         switch m.state {
         case listenersState:
             m.listenersTable.Focus()
             m.listenersTable.SetCursor(0)
         case listenerEditState:
-            m.listenersTable.Blur()
-        default:
-            m.listenersTable.Blur()
-            m.listenersTable.SetCursor(0)
+			placeholders := []string{m.listenersTable.SelectedRow()[1], m.listenersTable.SelectedRow()[2], 
+				m.listenersTable.SelectedRow()[3]}
+			m.listenersInput = m.listenersInput.NewInputModel([]string{"Name", "Ip", "Port"}, placeholders)
         }
     }
     m.listenersTable, cmd = m.listenersTable.Update(msg)
@@ -162,10 +216,22 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m MainModel) NextFocus() int {
-    f := m.focus + 1
-    if f >= len(m.buttons) {
-        return 0
-    }
+	f := m.focus + 1
+	switch m.state {
+	case listenerEditState:
+		for i := range m.listenersInput.Inputs {
+			m.listenersInput.Inputs[i].Blur()
+		}
+		if f == len(m.buttons) + len(m.listenersInput.Inputs){
+			return 0
+		} else if f >= len(m.buttons) {
+			m.listenersInput.Inputs[f - len(m.buttons)].Focus()
+		}
+	default:
+		if f >= len(m.buttons) {
+			return 0
+		}
+	}
 	return f
 }
 
@@ -188,19 +254,19 @@ func (m MainModel) NextState() (sessionState, []button, int) {
 } 
 
 func (m MainModel) View() string {
-    b := m.getButtonRow()
+    b := m.getButtonViewComponent()
 	switch m.state {
 	case mainState:
-        return lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText),
-            bigBoxStyle.Render(m.bigBox), m.getFooter(), b)
+        return lipgloss.JoinVertical(lipgloss.Top, m.getHeaderViewComponent(headerText),
+            bigBoxStyle.Render(m.bigBox), m.getFooterViewComponent(), b)
     case listenersState:
-        return lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText),
-            baseTableStyle.Render(m.listenersTable.View()), m.getFooter(), b)
+        return lipgloss.JoinVertical(lipgloss.Top, m.getHeaderViewComponent(headerText),
+            baseTableStyle.Render(m.listenersTable.View()), m.getFooterViewComponent(), b)
     case listenerNewState:
-        return fmt.Sprintf("TODO: New listener.")
+        return "TODO: New listener."
     case listenerEditState:
-        return lipgloss.JoinVertical(lipgloss.Top, m.getHeader(headerText),
-            bigBoxStyle.Render(m.listenersTable.SelectedRow()[1]), m.getFooter(), b)
+        return lipgloss.JoinVertical(lipgloss.Top, m.getHeaderViewComponent(headerText),
+			m.getInputViewComponent(), m.getFooterViewComponent(), b)
     case listenerInfoState:
         return fmt.Sprintf("TODO: View info of listener %s.",
             m.listenersTable.SelectedRow()[1])
@@ -208,7 +274,19 @@ func (m MainModel) View() string {
 	return ""
 }
 
-func (m MainModel) getButtonRow() string {
+func (m MainModel) getInputViewComponent() string {
+    var iview string
+
+    for i, t := range m.listenersInput.Labels {
+        temp := lipgloss.JoinVertical(lipgloss.Top,
+        inputTitleStyle.Render(t),
+        inputTitleStyle.Render(m.listenersInput.Inputs[i].View()))
+		iview = lipgloss.JoinVertical(lipgloss.Top, iview, temp, "\n")
+    }
+	return iview
+}
+
+func (m MainModel) getButtonViewComponent() string {
     var bview string
     for i, b := range m.buttons {
         if i == m.focus {
@@ -222,26 +300,19 @@ func (m MainModel) getButtonRow() string {
     return bview
 }
 
-func (m MainModel) getHeader(s string) string {
+func (m MainModel) getHeaderViewComponent(s string) string {
     lline := strings.Repeat(borderChar, 3)
 	text := headerStyle.Render(s)
 	rline := strings.Repeat(borderChar, maxWidth - (len(lline) + len(headerText) + 4))
 	return lipgloss.JoinHorizontal(lipgloss.Center, lline, text, rline)
 }
 
-func (m MainModel) getFooter() string {
+func (m MainModel) getFooterViewComponent() string {
 	line := strings.Repeat(borderChar, maxWidth)
 	return lipgloss.JoinHorizontal(lipgloss.Center, line)
 }
 
-func main() {
-	p := tea.NewProgram(NewModel())
-	if _, err := p.Run(); err != nil {
-		log.Println(err)
-	}
-}
-
-func (m MainModel) getDemoTable() table.Model {
+func (m MainModel) getDemoTableViewComponent() table.Model {
     numCol := 5
     tWidth := (maxWidth / numCol) - ((2 * numCol) / numCol)
     tHeight := maxHeight - 4
@@ -277,15 +348,22 @@ func (m MainModel) getDemoTable() table.Model {
 	s := table.DefaultStyles()
 	s.Header = s.Header.
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color(primaryColor)).
+		BorderForeground(lipgloss.Color(secondaryColor)).
 		BorderBottom(true).
 		Bold(false)
 	s.Selected = s.Selected.
-		Foreground(lipgloss.Color(primaryColor)).
-		Background(lipgloss.Color(focusColor)).
+		Foreground(lipgloss.Color(secondaryColor)).
+		Background(lipgloss.Color(primaryColor)).
 		Bold(false).
         BorderStyle(lipgloss.NormalBorder())
 	t.SetStyles(s)
 
 	return t
+}
+
+func KickOff() {
+	p := tea.NewProgram(NewModel())
+	if _, err := p.Run(); err != nil {
+		log.Println(err)
+	}
 }
