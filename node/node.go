@@ -37,6 +37,7 @@ func NewNode() *Node {
 	Ip:		SERVER_DEFAULT_IP,
 	Port:	SERVER_DEFAULT_PORT,
 	}
+    n.Hello = time.Now().Format(time.RFC1123)
 	n.initName(SERVER_DEFAULT_NAME_SIZE)
 	return &n
 }
@@ -87,14 +88,6 @@ func (n *Node) UnmarshalJSON(b []byte) error {
 	}
 	*n = newNode
 	return nil
-}
-
-func (n *Node) ToJson() ([]byte) {
-	b, err := json.Marshal(n)
-	if err != nil {
-		return make([]byte, 0)
-	}
-	return b
 }
 
 func (n *Node) ToJsonPretty() (string) {
