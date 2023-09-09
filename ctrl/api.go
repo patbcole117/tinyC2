@@ -1,5 +1,5 @@
 package ctrl
-
+/*
 import (
     "encoding/json"
     "fmt"
@@ -18,7 +18,9 @@ func Run() {
     r.Get("/v1/l", getV1Listeners)
     r.Route("/v1/l/{id}", func(r chi.Router) {
         r.Use(getV1ListenerByIdCtx)
+        r.Delete("/", deleteV1ListenerById)
         r.Get("/", getV1ListenerById)
+        r.Put("/", putV1ListenerById)
     })
 
     http.ListenAndServe("127.0.0.1:8000", r)
@@ -41,10 +43,16 @@ func getV1ListenerByIdCtx (next http.Handler) http.Handler {
         if err != nil {
             http.Error(w, http.StatusText(404), 404)
             return
-        {
+        }
         ctx := context.WithValue(r.Context(), "listener", listener)
         next.ServeHTTP(w, t.WithContext(ctx))
     })
+}
+
+func deleteV1ListenerById (w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    res := `{"TODO": "SELECT * FROM LISTENERS WHERE ID = x;"}`
+    w.Write([]byte(res))
 }
 
 func getV1ListenerById (w http.ResponseWriter, r *http.Request) {
@@ -53,7 +61,18 @@ func getV1ListenerById (w http.ResponseWriter, r *http.Request) {
     w.Write([]byte(res))
 }
 
-func dbGetListenerById(id int)[]byte {
-    n := node.NewNode()
-    return n.
+func putV1ListenerById (w http.ResponseWriter, r *http.Request) {
+    id := chi.URLParam(r, "id")
+    res := `{"TODO": "SELECT * FROM LISTENERS WHERE ID = x;"}`
+    w.Write([]byte(res))
 }
+
+func dbGetListenerById(id int) []byte {
+    n := node.NewNode()
+    b, err :=  json.Marshal(*n)
+    if err != nil {
+        
+    }
+    return b
+}
+*/

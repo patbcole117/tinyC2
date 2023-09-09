@@ -7,5 +7,8 @@ import (
 
 func main() {
 //	ui.KickOff()
-    ctrl.Run()
+//    ctrl.Run()
+
+	ctrl.NewDbHandler()
+
 }

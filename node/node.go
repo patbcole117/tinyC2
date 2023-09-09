@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -37,7 +38,7 @@ func NewNode() *Node {
 	Ip:		SERVER_DEFAULT_IP,
 	Port:	SERVER_DEFAULT_PORT,
 	}
-    n.Hello = time.Now().Format(time.RFC1123)
+    n.Hello = time.Now()
 	n.initName(SERVER_DEFAULT_NAME_SIZE)
 	return &n
 }
@@ -106,7 +107,10 @@ func (n *Node) urlRoot(w http.ResponseWriter, r *http.Request) {
 
 func (n *Node) urlInfo(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Date", time.Now().Format(time.UnixDate))
-    b := n.ToJson()
+    b, err:= json.Marshal(n)
+	if err != nil {
+		log.Print(err)
+	}
 	msg := string(b)
     io.WriteString(w, msg)
 }
