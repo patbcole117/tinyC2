@@ -23,24 +23,24 @@ const (
 )
 
 type Node struct {
-	Id  	string		`json:"id"`
-	Name   	string   	`json:"name"`
-	Groups 	[]string 	`json:"groups"`
-	Ip     	string   	`json:"ip"`
-	Port   	int      	`json:"port"`
-	Status 	int      	`json:"status"`
-	Hello 	time.Time   `json:"hello"`
+	Id  	string		`bson:"_id,omitempty"`
+	Name   	string   	
+	Groups 	[]string 	
+	Ip     	string   	
+	Port   	int      	
+	Status 	int      	
+	Hello 	time.Time
 	server 	*http.Server
 }
 
-func NewNode() *Node {
+func NewNode() Node {
 	n := Node {
 	Ip:		SERVER_DEFAULT_IP,
 	Port:	SERVER_DEFAULT_PORT,
 	}
     n.Hello = time.Now()
 	n.initName(SERVER_DEFAULT_NAME_SIZE)
-	return &n
+	return n
 }
 
 func (n *Node) initName(sz int) {
