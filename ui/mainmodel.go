@@ -47,6 +47,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = listenersState
 		default:
 			m.state = rootState
+			m.rootModel.bigBox = string(msg)
 		}
 
 	case tea.KeyMsg:
@@ -57,7 +58,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch m.state {
-	case rootState:
+	default:
 		m.rootModel, cmd = m.rootModel.Update(msg)
 	}
 

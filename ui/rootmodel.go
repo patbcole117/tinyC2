@@ -13,10 +13,10 @@ type RootModel struct {
 
 func NewRootModel() RootModel {
 	butt := []button {
-        {text: "Agents", do: rootListenersButton},
+        {text: "Agents", do: TODOButton},
         {text: "Listeners",	do: rootListenersButton},
-		{text: "cli", do: rootListenersButton},
-		{text: "Config", do: rootListenersButton},
+		{text: "cli", do: TODOButton},
+		{text: "Config", do: TODOButton},
     }
 	return RootModel {
 		focus:		0,
@@ -28,6 +28,9 @@ func NewRootModel() RootModel {
 type stateChange string
 func rootListenersButton() tea.Msg {
 	return stateChange("Listeners")
+}
+func TODOButton() tea.Msg {
+	return stateChange("TODO")
 }
 
 func (m RootModel) Update(msg tea.Msg) (RootModel, tea.Cmd) {
