@@ -29,6 +29,7 @@ type Node struct {
 	Ip     	string   	
 	Port   	int      	
 	Status 	int      	
+    Dob     time.Time
 	Hello 	time.Time
 	server 	*http.Server
 }
@@ -38,7 +39,7 @@ func NewNode() Node {
 	Ip:		SERVER_DEFAULT_IP,
 	Port:	SERVER_DEFAULT_PORT,
 	}
-    n.Hello = time.Now()
+    n.Dob = time.Now()
 	n.initName(SERVER_DEFAULT_NAME_SIZE)
 	return n
 }

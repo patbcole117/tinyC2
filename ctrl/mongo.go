@@ -15,9 +15,9 @@ import (
 type dbHandler struct {
 	con	mongo.Client
 }
-
+//export MONGO=value
 //$env:MONGO = "value"
-func NewDbHandler() dbHandler{
+func NewDBHandler() dbHandler{
 	p := os.Getenv("MONGO")
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	uri := fmt.Sprintf("mongodb+srv://dev:%s@homenet-asia-mongodb-de.4sgvde0.mongodb.net/?retryWrites=true&w=majority", p)
@@ -37,7 +37,7 @@ func NewDbHandler() dbHandler{
 	return dbHandler{con: *client}
 }
 
-func (h dbHandler) InsertListenerDoc(n node.Node) {
+func (h dbHandler) dbInsertListener(n node.Node) {
 	coll := h.con.Database("tinyC2").Collection("Listeners")
 	result, err := coll.InsertOne(context.TODO(), n)
 	if err != nil {
@@ -46,7 +46,19 @@ func (h dbHandler) InsertListenerDoc(n node.Node) {
 	fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
 }
 
-func (h dbHandler) Disconnect() {
+func (h dbHandler) dbUpdateListenerById(n node.Node) {
+
+}
+
+func (h dbHandler) dbDeleteListenerById(id string) {
+
+}
+
+func (h dbHandler) dbGetListenerById(id string) ([]byte, error) {
+    return nil, nil
+}
+
+func (h dbHandler) dbDisconnect() {
 	if err := h.con.Disconnect(context.TODO()); err != nil {
 		panic(err)
 	}

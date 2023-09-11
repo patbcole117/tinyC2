@@ -44,7 +44,6 @@ var (
         Height(buttonHeight).
         Align(lipgloss.Center, lipgloss.Center).
         BorderStyle(lipgloss.HiddenBorder())
-
 	focusButtonStyle = lipgloss.NewStyle().
         Width(buttonWidth).
         Height(buttonHeight).
@@ -56,16 +55,15 @@ var (
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color(secondaryColor))
 
-	inputTitleStyle = lipgloss.NewStyle().
+	inputLabelStyle = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(primaryColor)).
 		Bold(true)
-
-	inputBoxStyle = lipgloss.NewStyle().
-		Width(maxWidth).
-		Height(maxHeight).
-		Align(lipgloss.Left, lipgloss.Center).
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color(secondaryColor))
+	inputBoxStyle = lipgloss.NewStyle()
+    inputBigBoxStyle = lipgloss.NewStyle().
+        Width(maxWidth).
+        Height(maxHeight).
+        Align(lipgloss.Top, lipgloss.Top).
+        BorderForeground(lipgloss.Color(secondaryColor))
 )
 
 type sessionState uint
@@ -142,7 +140,7 @@ func (m InputModel) NewInputModel(labels, placeholders []string) InputModel {
 		inModels[i].Placeholder = placeholders[i]
 		inModels[i].CharLimit = 25
 		inModels[i].Width = 25
-		inModels[i].Prompt = "> "
+		inModels[i].Prompt = "# "
 	}
 
 	r := InputModel {
@@ -151,7 +149,6 @@ func (m InputModel) NewInputModel(labels, placeholders []string) InputModel {
 		Focus: 0,
 		Err: nil,
 	}
-	//r.Inputs[m.Focus].Focus()
 	return r
 }
 
@@ -205,9 +202,12 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.listenersTable.Focus()
             m.listenersTable.SetCursor(0)
         case listenerEditState:
-			placeholders := []string{m.listenersTable.SelectedRow()[1], m.listenersTable.SelectedRow()[2], 
-				m.listenersTable.SelectedRow()[3]}
-			m.listenersInput = m.listenersInput.NewInputModel([]string{"Name", "Ip", "Port"}, placeholders)
+			placeholders := []string {
+            m.listenersTable.SelectedRow()[1],
+            m.listenersTable.SelectedRow()[2],
+            m.listenersTable.SelectedRow()[3]}
+			m.listenersInput = m.listenersInput.NewInputModel([]string{"Name",
+            "Ip", "Port"}, placeholders)
         }
     }
     m.listenersTable, cmd = m.listenersTable.Update(msg)
@@ -257,16 +257,22 @@ func (m MainModel) View() string {
     b := m.getButtonViewComponent()
 	switch m.state {
 	case mainState:
-        return lipgloss.JoinVertical(lipgloss.Top, m.getHeaderViewComponent(headerText),
-            bigBoxStyle.Render(m.bigBox), m.getFooterViewComponent(), b)
+        return lipgloss.JoinVertical(lipgloss.Top,
+            m.getHeaderViewComponent(headerText),
+            bigBoxStyle.Render(m.bigBox),
+            m.getFooterViewComponent(), b)
     case listenersState:
-        return lipgloss.JoinVertical(lipgloss.Top, m.getHeaderViewComponent(headerText),
-            baseTableStyle.Render(m.listenersTable.View()), m.getFooterViewComponent(), b)
+        return lipgloss.JoinVertical(lipgloss.Top,
+            m.getHeaderViewComponent(headerText),
+            baseTableStyle.Render(m.listenersTable.View()),
+            m.getFooterViewComponent(), b)
     case listenerNewState:
         return "TODO: New listener."
     case listenerEditState:
-        return lipgloss.JoinVertical(lipgloss.Top, m.getHeaderViewComponent(headerText),
-			m.getInputViewComponent(), m.getFooterViewComponent(), b)
+        return lipgloss.JoinVertical(lipgloss.Top,
+            m.getHeaderViewComponent(headerText),
+			m.getInputViewComponent(),
+            m.getFooterViewComponent(), b)
     case listenerInfoState:
         return fmt.Sprintf("TODO: View info of listener %s.",
             m.listenersTable.SelectedRow()[1])
@@ -276,14 +282,19 @@ func (m MainModel) View() string {
 
 func (m MainModel) getInputViewComponent() string {
     var iview string
-
+    var temp string
     for i, t := range m.listenersInput.Labels {
-        temp := lipgloss.JoinVertical(lipgloss.Top,
-        inputTitleStyle.Render(t),
-        inputTitleStyle.Render(m.listenersInput.Inputs[i].View()))
-		iview = lipgloss.JoinVertical(lipgloss.Top, iview, temp, "\n")
+        if i+len(m.buttons) == m.focus {
+            m.listenersInput.Inputs[i].Prompt = "> "
+        } else {
+            m.listenersInput.Inputs[i].Prompt = "# "
+        }
+        temp = lipgloss.JoinVertical(lipgloss.Top,
+        inputLabelStyle.Render(t),
+        inputBoxStyle.Render(m.listenersInput.Inputs[i].View()))
+		iview = lipgloss.JoinVertical(lipgloss.Top, iview, temp)
     }
-	return iview
+	return inputBigBoxStyle.Render(iview)
 }
 
 func (m MainModel) getButtonViewComponent() string {
