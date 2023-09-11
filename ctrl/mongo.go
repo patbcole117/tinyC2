@@ -32,18 +32,18 @@ func NewDBHandler() dbHandler{
 	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Err(); err != nil {
 		panic(err)
 	}
-	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
+	//fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
 
 	return dbHandler{con: *client}
 }
 
 func (h dbHandler) dbInsertListener(n node.Node) {
 	coll := h.con.Database("tinyC2").Collection("Listeners")
-	result, err := coll.InsertOne(context.TODO(), n)
+	_, err := coll.InsertOne(context.TODO(), n)
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
+	//fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
 }
 
 func (h dbHandler) dbUpdateListenerById(n node.Node) {

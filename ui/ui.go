@@ -1,11 +1,13 @@
 package ui
 
 import (
-    "fmt"
+	"bytes"
+	"fmt"
 	"log"
+	"math/rand"
+	"net/http"
 	"strconv"
 	"strings"
-	"math/rand"
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -72,6 +74,7 @@ const (
 	agentInfoState
 	agentEditState
     cliState
+	configEditState
 	listenersState
 	listenerEditState
     listenerInfoState
@@ -81,9 +84,10 @@ const (
 
 var (
     mainButtons = []button {
-        {text: "Agents",     state: agentsState},
-        {text: "Listeners",  state: listenersState},
-        {text: "cli",        state: cliState},
+        {text: "Agents",     	state: agentsState},
+        {text: "Listeners",  	state: listenersState},
+		{text: "cli",        	state: cliState},
+		{text: "Config", 		state: configEditState},
     }
 
     listenersButtons    = []button {
@@ -99,15 +103,27 @@ var (
         {text: "Save",      state: listenersState},
         {text: "Cancel",    state: listenersState},
     }
+
+	configEditButtons = []button {
+        {text: "Save",      state: mainState},
+        {text: "Cancel",    state: mainState},
+    }
 )
+
+type Config struct {
+	apiIp	string
+	apiPort	string
+	apiVer  string
+}
 
 type MainModel struct {
 	state           sessionState
 	focus           int 
+	config			Config
     buttons         []button     
     bigBox          string
     listenersTable  table.Model
-	listenersInput	InputModel
+	InputBoxes	InputModel
 }
 
 type InputModel struct {
@@ -128,6 +144,7 @@ func NewModel() MainModel {
 		focus:      0, 
         buttons:    mainButtons,
         bigBox:     GetRandomBanner(),
+		config: Config{apiIp: "127.0.0.1", apiPort: "8000", apiVer: "v1"},
 	}
     m.listenersTable = m.getDemoTableViewComponent()
 	return m
@@ -175,19 +192,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			m.focus = m.NextFocus()
         case "enter":
+			m.HandleButton(&m)
 			if m.focus >= len(m.buttons){
 				m.focus = m.NextFocus()
 			} else {
 				m.state, m.buttons, m.focus = m.NextState()
 			}
+
             
 		}
 	}
 
-	switch m.state {
-	case listenerEditState:
-		for i := range m.listenersInput.Inputs {
-			m.listenersInput.Inputs[i], cmd = m.listenersInput.Inputs[i].Update(msg)
+	if m.state == listenerEditState || m.state == configEditState || m.state == listenerNewState {
+		for i := range m.InputBoxes.Inputs {
+			m.InputBoxes.Inputs[i], cmd = m.InputBoxes.Inputs[i].Update(msg)
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -198,6 +216,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.bigBox = GetRandomBanner()
 
         switch m.state {
+		case configEditState:
+			placeholders := []string {m.config.apiIp, m.config.apiPort,
+				m.config.apiVer}
+				m.InputBoxes = m.InputBoxes.NewInputModel([]string{"Ip",
+				"Port", "Version"}, placeholders)
         case listenersState:
             m.listenersTable.Focus()
             m.listenersTable.SetCursor(0)
@@ -206,7 +229,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.listenersTable.SelectedRow()[1],
             m.listenersTable.SelectedRow()[2],
             m.listenersTable.SelectedRow()[3]}
-			m.listenersInput = m.listenersInput.NewInputModel([]string{"Name",
+			m.InputBoxes = m.InputBoxes.NewInputModel([]string{"Name",
+            "Ip", "Port"}, placeholders)
+		case listenerNewState:
+			placeholders := []string {"Bob", "127.0.0.1", "80"}
+			m.InputBoxes = m.InputBoxes.NewInputModel([]string{"Name",
             "Ip", "Port"}, placeholders)
         }
     }
@@ -217,22 +244,54 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m MainModel) NextFocus() int {
 	f := m.focus + 1
-	switch m.state {
-	case listenerEditState:
-		for i := range m.listenersInput.Inputs {
-			m.listenersInput.Inputs[i].Blur()
+	if m.state == listenerEditState || m.state == configEditState || m.state == listenerNewState {
+		for i := range m.InputBoxes.Inputs {
+			m.InputBoxes.Inputs[i].Blur()
 		}
-		if f == len(m.buttons) + len(m.listenersInput.Inputs){
+		if f == len(m.buttons) + len(m.InputBoxes.Inputs){
 			return 0
 		} else if f >= len(m.buttons) {
-			m.listenersInput.Inputs[f - len(m.buttons)].Focus()
+			m.InputBoxes.Inputs[f - len(m.buttons)].Focus()
 		}
-	default:
+	} else {
 		if f >= len(m.buttons) {
 			return 0
 		}
 	}
-	return f
+	return f	
+}
+
+func (m MainModel) HandleButton(pm *MainModel) {
+	url := "http://" + m.config.apiIp + ":" + m.config.apiPort + "/" + m.config.apiVer + "/"
+	switch m.state {
+	case configEditState:
+		if m.focus == 0 {
+			pm.config.apiIp = m.InputBoxes.Inputs[0].Value()
+			pm.config.apiPort = m.InputBoxes.Inputs[1].Value()
+			pm.config.apiVer = m.InputBoxes.Inputs[2].Value()
+		}
+	case listenerNewState:
+		if m.focus == 0 {
+			body := []byte(fmt.Sprintf(`{"name": "%s", "ip": "%s", "port": "%s"}`,
+			m.InputBoxes.Inputs[0].Value(),
+			m.InputBoxes.Inputs[1].Value(),
+			m.InputBoxes.Inputs[2].Value(),))
+			r, err := http.NewRequest("POST", url + "l/new", bytes.NewBuffer(body))
+			if err != nil {
+				panic(err)
+			}
+			client := &http.Client{}
+			_, err = client.Do(r)
+			if err != nil {
+				panic(err)
+			}
+			defer r.Body.Close()
+
+			//fmt.Println(resp)
+		}
+	default:
+
+	}
 }
 
 func (m MainModel) NextState() (sessionState, []button, int) {
@@ -240,9 +299,13 @@ func (m MainModel) NextState() (sessionState, []button, int) {
     s := m.buttons[m.focus].state
     var b []button
     switch s {
+	case configEditState:
+		b = configEditButtons
     case listenersState:
         b = listenersButtons
     case listenerEditState:
+        b = listenerEditButtons
+	case listenerNewState:
         b = listenerEditButtons
     default:
         b = mainButtons
@@ -256,6 +319,11 @@ func (m MainModel) NextState() (sessionState, []button, int) {
 func (m MainModel) View() string {
     b := m.getButtonViewComponent()
 	switch m.state {
+	case configEditState:
+		return lipgloss.JoinVertical(lipgloss.Top,
+            m.getHeaderViewComponent(headerText),
+			m.getInputViewComponent(),
+            m.getFooterViewComponent(), b)
 	case mainState:
         return lipgloss.JoinVertical(lipgloss.Top,
             m.getHeaderViewComponent(headerText),
@@ -267,7 +335,10 @@ func (m MainModel) View() string {
             baseTableStyle.Render(m.listenersTable.View()),
             m.getFooterViewComponent(), b)
     case listenerNewState:
-        return "TODO: New listener."
+        return lipgloss.JoinVertical(lipgloss.Top,
+            m.getHeaderViewComponent(headerText),
+			m.getInputViewComponent(),
+            m.getFooterViewComponent(), b)
     case listenerEditState:
         return lipgloss.JoinVertical(lipgloss.Top,
             m.getHeaderViewComponent(headerText),
@@ -283,15 +354,15 @@ func (m MainModel) View() string {
 func (m MainModel) getInputViewComponent() string {
     var iview string
     var temp string
-    for i, t := range m.listenersInput.Labels {
+    for i, t := range m.InputBoxes.Labels {
         if i+len(m.buttons) == m.focus {
-            m.listenersInput.Inputs[i].Prompt = "> "
+            m.InputBoxes.Inputs[i].Prompt = "> "
         } else {
-            m.listenersInput.Inputs[i].Prompt = "# "
+            m.InputBoxes.Inputs[i].Prompt = "# "
         }
         temp = lipgloss.JoinVertical(lipgloss.Top,
         inputLabelStyle.Render(t),
-        inputBoxStyle.Render(m.listenersInput.Inputs[i].View()))
+        inputBoxStyle.Render(m.InputBoxes.Inputs[i].View()))
 		iview = lipgloss.JoinVertical(lipgloss.Top, iview, temp)
     }
 	return inputBigBoxStyle.Render(iview)
