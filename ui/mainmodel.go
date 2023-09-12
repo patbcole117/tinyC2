@@ -5,6 +5,15 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/lipgloss"
+    "github.com/charmbracelet/bubbles/textinput"
+)
+
+type state uint
+const (
+    configState         state = iota
+    listenerNewState
+    listenersState
+    rootState
 )
 
 type apiConfig struct {
@@ -18,7 +27,7 @@ type MainModel struct {
 	state		    state
     helpMsg         string
 	rootModel   	RootModel
-    listenersModel  ListenersModel
+    tableModel      TableModel
     inputModel      InputModel
 }
 
@@ -28,7 +37,6 @@ func NewMainModel() MainModel {
 		config:         apiConfig{apiIp: "127.0.0.1", apiPort: "8000", apiVer: "v1"},
         helpMsg:        defaultHelpMsg,
 		rootModel:      NewRootModel(),
-        listenersModel: NewListenersModel(),
 	}
 }
 
@@ -44,9 +52,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     case inputSaveMsg:
         switch msg {
         case "Config":
-            m.config.apiIp      = m.inputModel.inputs[0].Value()
-            m.config.apiPort    = m.inputModel.inputs[1].Value()
-            m.config.apiVer     = m.inputModel.inputs[2].Value()
+            m.config.apiIp      = m.inputModel.inputs[0].textBox.Value()
+            m.config.apiPort    = m.inputModel.inputs[1].textBox.Value()
+            m.config.apiVer     = m.inputModel.inputs[2].textBox.Value()
             m.state = rootState
         }
     case inputCancelMsg:
@@ -57,23 +65,27 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case setStateMsg:
 		switch msg {
         case "Config":
-            l := []string{"Ip", "Port", "Version"}
-            p := []string{m.config.apiIp, m.config.apiPort, m.config.apiVer}
-            f := [](func() tea.Msg){saveConfig, cancelConfig}
-            m.inputModel = NewInputModel(l, p, f)
             m.state = configState
+            ins, butts := m.MakeInputModelComponents()
+            m.inputModel = NewInputModel(ins, butts)
+            
         case "NewListener":
-            l := []string{"Name", "Ip", "Port"}
-            p := []string{m.listenersModel.table.SelectedRow()[1],
-                m.listenersModel.table.SelectedRow()[2],
-                m.listenersModel.table.SelectedRow()[3],
-            }
-            f := [](func() tea.Msg){TODOButton, TODOButton}
-            m.inputModel = NewInputModel(l, p, f)
-            m.helpMsg = "Create a new listener."
             m.state = listenerNewState
+            m.helpMsg = "Create a new listener."
+            ins, butts := m.MakeInputModelComponents()
+            m.inputModel = NewInputModel(ins, butts)
+            
 		case "Listeners":
-            m.listenersModel.table.SetCursor(0)
+            butt := []button {
+                {text: "New", do: toNewListenerState},
+                {text: "Edit", do: TODOButton},
+                {text: "Info", do: TODOButton},
+                {text: "Start", do: TODOButton},
+                {text: "Stop", do: TODOButton},
+                {text: "Delete", do: TODOButton},
+            }
+            m.tableModel = NewTableModel(butt)
+            m.tableModel.table.SetCursor(0)
             m.helpMsg = "View and configure listeners."
 			m.state = listenersState
 		default:
@@ -85,8 +97,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
     if m.state != curState {
-        m.listenersModel.table.Blur()
-        m.listenersModel.focus = 0
+        m.tableModel.table.Blur()
+        m.tableModel.focus = 0
         m.rootModel.bigBox = GetRandomBanner()
         m.rootModel.focus = 0
     }
@@ -97,8 +109,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     case listenerNewState:
         m.inputModel, cmd = m.inputModel.Update(msg)
     case listenersState:
-        m.listenersModel.table.Focus()
-        m.listenersModel, cmd = m.listenersModel.Update(msg)
+        m.tableModel.table.Focus()
+        m.tableModel, cmd = m.tableModel.Update(msg)
 	default:
 		m.rootModel, cmd = m.rootModel.Update(msg)
 	}
@@ -114,11 +126,57 @@ func (m MainModel) View() string {
     case listenerNewState, configState:
         s = m.inputModel.View()
 	case listenersState:
-		s = m.listenersModel.View()
+		s = m.tableModel.View()
 	default:
 		s = m.rootModel.View()
 	}
 	return lipgloss.JoinVertical(lipgloss.Top, s, helpBoxStyle.Render(m.helpMsg))
+}
+
+func (m MainModel) MakeInputModelComponents() ([]input, []button) {
+    var butts []button
+    var inputs []input
+    switch m.state {
+    case configState:
+        butts = []button {
+            {text: "Save", do: saveConfig},
+            {text: "Cancel", do: cancelConfig},
+        }
+        inputs = []input {
+            {label: "Ip", textBox: textinput.New()},
+            {label: "Port", textBox: textinput.New()},
+            {label: "Version", textBox: textinput.New()},
+        }
+        p := []string{m.config.apiIp, m.config.apiPort, m.config.apiVer}
+        for i := range inputs {
+            inputs[i].textBox.Placeholder = p[i]
+            inputs[i].textBox.CharLimit   = 25
+            inputs[i].textBox.Width       = 25
+            inputs[i].textBox.Prompt      = "# "
+        }
+    case listenerNewState:
+        butts = []button {
+            {text: "Save", do: TODOButton},
+            {text: "Cancel", do: TODOButton},
+        }
+        inputs = []input {
+            {label: "Name", textBox: textinput.New()},
+            {label: "Ip", textBox: textinput.New()},
+            {label: "Port", textBox: textinput.New()},
+        }
+        p := []string{
+            m.tableModel.table.SelectedRow()[1],
+            m.tableModel.table.SelectedRow()[2],
+            m.tableModel.table.SelectedRow()[3],
+        }
+        for i := range inputs {
+            inputs[i].textBox.Placeholder = p[i]
+            inputs[i].textBox.CharLimit   = 25
+            inputs[i].textBox.Width       = 25
+            inputs[i].textBox.Prompt      = "# "
+        }
+    }
+    return inputs, butts
 }
 
 func KickOff() {

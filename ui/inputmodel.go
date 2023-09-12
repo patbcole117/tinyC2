@@ -3,35 +3,19 @@ package ui
 import (
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/lipgloss"
-    "github.com/charmbracelet/bubbles/textinput"
 )
 
 type InputModel struct {
     focus   int
     buttons []button
-    labels  []string
-    inputs  []textinput.Model
+    inputs  []input
 }
 
-func NewInputModel(labs, placeholders []string, f [](func() tea.Msg)) InputModel {
-    var inModels []textinput.Model = make([]textinput.Model, len(labs))
-    butt := []button {
-        {text: "Save", do: f[0]},
-        {text: "Cancel", do: f[1]},
-    }
-    
-    for i := range labs {
-        inModels[i] = textinput.New()
-        inModels[i].Placeholder = placeholders[i]
-        inModels[i].CharLimit   = 25
-        inModels[i].Width       = 25
-        inModels[i].Prompt      = "# "
-    }
+func NewInputModel(ins []input, butts []button) InputModel {
     return InputModel {
         focus:      0,
-        buttons:    butt,
-        labels:     labs,
-        inputs:     inModels,
+        buttons:    butts,
+        inputs:     ins,
     }
 }
 
@@ -58,16 +42,16 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
     inFoc :=  m.focus - len(m.buttons)
     for x := range m.inputs {
         if x == inFoc {
-            m.inputs[x].Prompt = "> "
-            m.inputs[x].Focus() 
+            m.inputs[x].textBox.Prompt = "> "
+            m.inputs[x].textBox.Focus() 
         } else {
-            m.inputs[x].Prompt = "# "
-            m.inputs[x].Blur()
+            m.inputs[x].textBox.Prompt = "# "
+            m.inputs[x].textBox.Blur()
         }
     }
     
     for i := range m.inputs {
-        m.inputs[i], cmd = m.inputs[i].Update(msg)
+        m.inputs[i].textBox, cmd = m.inputs[i].textBox.Update(msg)
         cmds = append(cmds, cmd)
     }
     return m, tea.Batch(cmds...)
@@ -76,7 +60,7 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 func (m InputModel) View() string {
     return lipgloss.JoinVertical(lipgloss.Top,
         GetHeaderViewComponent(),
-        GetInputViewComponent(m.labels, m.inputs),
+        GetInputViewComponent(m.inputs),
         GetFooterViewComponent(),
         GetButtonViewComponent(m.buttons, m.focus))
 }

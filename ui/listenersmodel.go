@@ -6,29 +6,21 @@ import (
  	"github.com/charmbracelet/bubbles/table"
 )
 
-type ListenersModel struct {
+type TableModel struct {
 	focus int
 	buttons []button
 	table	table.Model
 }
 
-func NewListenersModel() ListenersModel {
-	butt := []button {
-		{text: "New", do: toNewListenerState},
-		{text: "Edit", do: TODOButton},
-		{text: "Info", do: TODOButton},
-		{text: "Start", do: TODOButton},
-		{text: "Stop", do: TODOButton},
-		{text: "Delete", do: TODOButton},
-	}
-	return ListenersModel {
+func NewTableModel(butt []button) TableModel {
+	return TableModel {
 		focus: 0,
 		buttons: butt,
 		table: GetDemoTable(),
 	}
 }
 
-func (m ListenersModel) Update(msg tea.Msg) (ListenersModel, tea.Cmd) {
+func (m TableModel) Update(msg tea.Msg) (TableModel, tea.Cmd) {
     var cmd tea.Cmd
     var cmds []tea.Cmd
 
@@ -48,7 +40,7 @@ func (m ListenersModel) Update(msg tea.Msg) (ListenersModel, tea.Cmd) {
     return m, tea.Batch(cmds...)
 }
 
-func (m ListenersModel) View() string {
+func (m TableModel) View() string {
     b := GetButtonViewComponent(m.buttons, m.focus)
     return lipgloss.JoinVertical(lipgloss.Top,
         GetHeaderViewComponent(),
