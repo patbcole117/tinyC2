@@ -16,7 +16,7 @@ var (
 	borderChar      = "-"
     headerBar       = "-"
     headerText      = "tinyC2"
-    defaultHelpMsg  = "Welcome to tinyC2!"
+    defaultinfoMsg  = "Welcome to tinyC2!"
 )
 
 var (

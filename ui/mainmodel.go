@@ -25,7 +25,7 @@ type apiConfig struct {
 type MainModel struct {
 	config		    apiConfig
 	state		    state
-    helpMsg         string
+    infoMsg         string
 	rootModel   	RootModel
     tableModel      TableModel
     inputModel      InputModel
@@ -35,7 +35,7 @@ func NewMainModel() MainModel {
 	return MainModel {
 		state:	        rootState,
 		config:         apiConfig{apiIp: "127.0.0.1", apiPort: "8000", apiVer: "v1"},
-        helpMsg:        defaultHelpMsg,
+        infoMsg:        defaultinfoMsg,
 		rootModel:      NewRootModel(),
 	}
 }
@@ -71,7 +71,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             
         case "NewListener":
             m.state = listenerNewState
-            m.helpMsg = "Create a new listener."
+            m.infoMsg = "Create a new listener."
             ins, butts := m.MakeInputModelComponents()
             m.inputModel = NewInputModel(ins, butts)
             
@@ -86,14 +86,22 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             }
             m.tableModel = NewTableModel(butt)
             m.tableModel.table.SetCursor(0)
-            m.helpMsg = "View and configure listeners."
+            m.infoMsg = "View and configure listeners."
 			m.state = listenersState
 		default:
-            m.helpMsg = defaultHelpMsg
+            m.infoMsg = defaultinfoMsg
 			m.state = rootState
 		}
-    case setHelpMsg:
-        m.helpMsg = string(msg)
+    case dbMsg:
+        switch msg{
+        case "NewListener":
+            cmd = NewListener(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
+            cmds = append(cmds, cmd)
+            m.state = listenersState
+        }
+        m.infoMsg = string(msg)
+    case setInfoMsg:
+        m.infoMsg = string(msg)
 	}
 
     if m.state != curState {
@@ -106,17 +114,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.state {
     case configState:
         m.inputModel, cmd = m.inputModel.Update(msg)
+        cmds = append(cmds, cmd)
     case listenerNewState:
         m.inputModel, cmd = m.inputModel.Update(msg)
+        cmds = append(cmds, cmd)
     case listenersState:
         m.tableModel.table.Focus()
         m.tableModel, cmd = m.tableModel.Update(msg)
+        cmds = append(cmds, cmd)
 	default:
 		m.rootModel, cmd = m.rootModel.Update(msg)
-	}
+        cmds = append(cmds, cmd)
 
-	
-    cmds = append(cmds, cmd)
+	}
+    
 	return m, tea.Batch(cmds...)
 }
 
@@ -130,7 +141,7 @@ func (m MainModel) View() string {
 	default:
 		s = m.rootModel.View()
 	}
-	return lipgloss.JoinVertical(lipgloss.Top, s, helpBoxStyle.Render(m.helpMsg))
+	return lipgloss.JoinVertical(lipgloss.Top, s, helpBoxStyle.Render(m.infoMsg))
 }
 
 func (m MainModel) MakeInputModelComponents() ([]input, []button) {
@@ -156,7 +167,7 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
         }
     case listenerNewState:
         butts = []button {
-            {text: "Save", do: TODOButton},
+            {text: "Save", do: trigNewListener},
             {text: "Cancel", do: TODOButton},
         }
         inputs = []input {

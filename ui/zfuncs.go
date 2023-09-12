@@ -1,9 +1,16 @@
 package ui
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/patbcole117/tinyC2/node"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,22 +27,65 @@ type input struct {
 	textBox textinput.Model
 }
 
-type inputCancelMsg string
+type dbMsg string
+func trigNewListener() tea.Msg {
+	return dbMsg("NewListener")
+}
+func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
+	return func() tea.Msg {
+		var msg string
+		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/new"
+		n := node.NewNode()
+		n.Name = name
+		n.Ip = ip
+		n.Port, _ = strconv.Atoi(port)
+		body, _ := json.Marshal(n)
 
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+		if err != nil {
+			msg = fmt.Sprintf(`{"ERROR": "http.NewRequest", "Msg": "%s"}`, err)
+			return dbMsg(msg)
+		}
+		req.Header.Add("Content-Type", "application/json")
+		client := &http.Client{}
+		res, err := client.Do(req)
+		if err != nil {
+			msg = fmt.Sprintf(`{"ERROR": "client.Do", "Msg": "%s"}`, err)
+			return dbMsg(msg)
+		}
+		defer res.Body.Close()
+		if res.StatusCode == http.StatusCreated {
+			body, err := io.ReadAll(res.Body)
+			if err != nil {
+				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err)
+				return dbMsg(msg)
+			}
+	
+			jsonStr := string(body)
+			msg = fmt.Sprintf(`{"SUCCESS": "%s"}`, jsonStr)
+	
+		} else {
+			//The status is not Created. print the error.
+			msg = fmt.Sprintf(`{"ERROR": "resp.StatusCode", "Msg": "%s"}`, res.Status)
+			return dbMsg(msg)
+		}
+		return setInfoMsg(msg)
+	}
+}
+
+type inputCancelMsg string
 func cancelConfig() tea.Msg {
 	return inputCancelMsg("Config")
 }
 
 type inputSaveMsg string
-
 func saveConfig() tea.Msg {
 	return inputSaveMsg("Config")
 }
 
-type setHelpMsg string
+type setInfoMsg string
 
 type setStateMsg string
-
 func TODOButton() tea.Msg {
 	return setStateMsg("TODO")
 }

@@ -1,4 +1,4 @@
-package ctrl
+package api
 
 import (
 
@@ -12,12 +12,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type dbHandler struct {
-	con	mongo.Client
+type dbConnection struct {
+	c *mongo.Client
 }
+
 //export MONGO=value
 //$env:MONGO = "value"
-func NewDBHandler() dbHandler{
+func GetClient() dbConnection {
 	p := os.Getenv("MONGO")
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	uri := fmt.Sprintf("mongodb+srv://dev:%s@homenet-asia-mongodb-de.4sgvde0.mongodb.net/?retryWrites=true&w=majority", p)
@@ -33,33 +34,14 @@ func NewDBHandler() dbHandler{
 		panic(err)
 	}
 	//fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
-
-	return dbHandler{con: *client}
+	return dbConnection{c: client}
 }
 
-func (h dbHandler) dbInsertListener(n node.Node) {
-	coll := h.con.Database("tinyC2").Collection("Listeners")
-	_, err := coll.InsertOne(context.TODO(), n)
+func (db dbConnection) InsertNewNode(n node.Node) (*mongo.InsertOneResult, error) {
+	coll := db.c.Database("tinyC2").Collection("Listeners")
+	result, err := coll.InsertOne(context.TODO(), n)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
-	//fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
-}
-
-func (h dbHandler) dbUpdateListenerById(n node.Node) {
-
-}
-
-func (h dbHandler) dbDeleteListenerById(id string) {
-
-}
-
-func (h dbHandler) dbGetListenerById(id string) ([]byte, error) {
-    return nil, nil
-}
-
-func (h dbHandler) dbDisconnect() {
-	if err := h.con.Disconnect(context.TODO()); err != nil {
-		panic(err)
-	}
+	return result, nil
 }
