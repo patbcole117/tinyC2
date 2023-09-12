@@ -14,47 +14,38 @@ type RootModel struct {
 func NewRootModel() RootModel {
 	butt := []button {
         {text: "Agents", do: TODOButton},
-        {text: "Listeners",	do: rootListenersButton},
+        {text: "Listeners",	do: toListenersState},
 		{text: "cli", do: TODOButton},
-		{text: "Config", do: TODOButton},
+		{text: "Config", do: toConfigState},
     }
 	return RootModel {
 		focus:		0,
 		buttons: 	butt,
-		bigBox: 	"TODO",
+		bigBox: 	GetRandomBanner(),
 	}
 }
 
-type stateChange string
-func rootListenersButton() tea.Msg {
-	return stateChange("Listeners")
-}
-func TODOButton() tea.Msg {
-	return stateChange("TODO")
-}
-
 func (m RootModel) Update(msg tea.Msg) (RootModel, tea.Cmd) {
-	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+        case "ctrl+c", "esc":
+            return m, tea.Quit
 		case "enter":
-			return m, m.buttons[m.focus].do
+			cmds = append(cmds, m.buttons[m.focus].do)
 		case "tab":
 			m.focus = NextFocus(m.focus, len(m.buttons))
 		}
 	}
-
-    cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
 
 func (m RootModel) View() string {
 	b := GetButtonViewComponent(m.buttons, m.focus)
 	return lipgloss.JoinVertical(lipgloss.Top,
-		GetHeaderViewComponent(headerText),
+		GetHeaderViewComponent(),
 		bigBoxStyle.Render(m.bigBox),
 		GetFooterViewComponent(), b)
 }
