@@ -23,7 +23,6 @@ const (
 )
 
 type Node struct {
-	Id  	string		`json:"_id,omitempty"`
 	Name   	string		`json:"name"`
 	Ip     	string   	`json:"ip"`
 	Port   	int      	`json:"port"`

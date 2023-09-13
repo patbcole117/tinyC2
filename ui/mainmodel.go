@@ -2,6 +2,7 @@ package ui
 
 import (
 	"log"
+    "fmt"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -56,6 +57,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.config.apiPort    = m.inputModel.inputs[1].textBox.Value()
             m.config.apiVer     = m.inputModel.inputs[2].textBox.Value()
             m.state = rootState
+            m := fmt.Sprintf(`{"CONFIG":{"Ip": "%s", "Port":"%s", "Ver":"%s"}}`, m.config.apiIp, m.config.apiPort, m.config.apiVer)
+            cmds = append(cmds, changeInfoMsg(m))
         }
     case inputCancelMsg:
         switch msg {
@@ -99,7 +102,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             cmds = append(cmds, cmd)
             m.state = listenersState
         }
-        m.infoMsg = string(msg)
+        cmds = append(cmds, changeInfoMsg(string(msg)))
     case setInfoMsg:
         m.infoMsg = string(msg)
 	}

@@ -97,6 +97,11 @@ func saveConfig() tea.Msg {
 }
 
 type setInfoMsg string
+func changeInfoMsg(msg string) tea.Cmd {
+	return func() tea.Msg {
+		return setInfoMsg(msg)
+	}
+}
 
 type setStateMsg string
 func TODOButton() tea.Msg {
