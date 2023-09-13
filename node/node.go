@@ -23,15 +23,14 @@ const (
 )
 
 type Node struct {
-	Id  	string		`bson:"_id,omitempty"`
-	Name   	string   	
-	Groups 	[]string 	
-	Ip     	string   	
-	Port   	int      	
-	Status 	int      	
-    Dob     time.Time
-	Hello 	time.Time
-	server 	*http.Server
+	Id  	string		`json:"_id,omitempty"`
+	Name   	string		`json:"name"`
+	Ip     	string   	`json:"ip"`
+	Port   	int      	`json:"port"`
+	Status 	int      	`json:"status"`
+    Dob     time.Time	`json:"dob"`
+	Hello 	time.Time	`json:"hello"`
+	server 	*http.Server    `json:"server,omitempty"`
 }
 
 func NewNode() Node {
@@ -83,13 +82,45 @@ func (n *Node) SrvStop() error {
 	return err
 }
 
-func (n *Node) UnmarshalJSON(b []byte) error {
-	var newNode Node
-	if err := json.Unmarshal(b, &newNode); err != nil {
-		return err
-	}
-	*n = newNode
-	return nil
+func (n *Node) UnmarshalJSON(j []byte) error {
+    type Alias Node
+    aux := &struct{
+        Dob 	string	`json:"dob"`
+		Hello 	string	`json:"hello"`	
+        *Alias
+    }{
+        Alias:  (*Alias)(n),
+    }
+
+    if err := json.Unmarshal(j, &aux); err != nil {
+        return err
+    }
+   
+    t, err := time.Parse(time.DateOnly, aux.Dob)
+    if err != nil {
+        return err
+    }
+	n.Dob = t
+    
+	t, err = time.Parse(time.DateOnly, aux.Hello)
+    if err != nil {
+        return err
+    }
+	n.Hello = t
+    return nil
+}
+
+func (n *Node) MarshalJSON() ([]byte, error) {
+    type Alias Node
+    return json.Marshal(&struct {
+        Dob 	string  `json:"dob"`
+		Hello 	string  `json:"hello"`
+        *Alias
+    }{
+        Dob: 	n.Dob.Format(time.DateOnly),
+		Hello: 	n.Hello.Format(time.DateOnly),
+        Alias:  (*Alias)(n),
+    })
 }
 
 func (n *Node) ToJsonPretty() (string) {
