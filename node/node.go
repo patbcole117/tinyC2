@@ -37,8 +37,10 @@ func NewNode() Node {
 	n := Node {
 	Ip:		SERVER_DEFAULT_IP,
 	Port:	SERVER_DEFAULT_PORT,
+	Status:	STOPPED,
 	}
     n.Dob = time.Now()
+	n.Hello = time.Now()
 	n.initName(SERVER_DEFAULT_NAME_SIZE)
 	return n
 }
@@ -96,13 +98,13 @@ func (n *Node) UnmarshalJSON(j []byte) error {
         return err
     }
    
-    t, err := time.Parse(time.DateOnly, aux.Dob)
+    t, err := time.Parse(time.RFC3339, aux.Dob)
     if err != nil {
         return err
     }
 	n.Dob = t
     
-	t, err = time.Parse(time.DateOnly, aux.Hello)
+	t, err = time.Parse(time.RFC3339, aux.Hello)
     if err != nil {
         return err
     }
@@ -117,8 +119,8 @@ func (n *Node) MarshalJSON() ([]byte, error) {
 		Hello 	string  `json:"hello"`
         *Alias
     }{
-        Dob: 	n.Dob.Format(time.DateOnly),
-		Hello: 	n.Hello.Format(time.DateOnly),
+        Dob: 	n.Dob.Format(time.RFC3339),
+		Hello: 	n.Hello.Format(time.RFC3339),
         Alias:  (*Alias)(n),
     })
 }

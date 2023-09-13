@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
     "fmt"
+    "io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -25,8 +26,12 @@ func Check (w http.ResponseWriter, r *http.Request) {
 
 func NewNode (w http.ResponseWriter, r *http.Request) {
     var resp string
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        panic(err)
+    }
     n := node.NewNode()
-    err := json.NewDecoder(r.Body).Decode(&n)
+    err = json.Unmarshal(body, &n)
     if err != nil {
         panic(err)
     }

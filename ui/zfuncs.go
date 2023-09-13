@@ -38,8 +38,18 @@ func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
 		n := node.NewNode()
 		n.Name = name
 		n.Ip = ip
-		n.Port, _ = strconv.Atoi(port)
-		body, _ := json.Marshal(n)
+		p, err := strconv.Atoi(port)
+		n.Port = p
+		if err != nil {
+			msg = fmt.Sprintf(`{"ERROR": "strconv.Atoi", "Msg": "%s"}`, err)
+			return dbMsg(msg)
+		}
+
+		body, err := json.Marshal(n)
+		if err != nil {
+			msg = fmt.Sprintf(`{"ERROR": "json.Marshal", "Msg": "%s"}`, err)
+			return dbMsg(msg)
+		}
 
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
 		if err != nil {
@@ -47,6 +57,8 @@ func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
 			return dbMsg(msg)
 		}
 		req.Header.Add("Content-Type", "application/json")
+		req.Close = true
+
 		client := &http.Client{}
 		res, err := client.Do(req)
 		if err != nil {
@@ -54,6 +66,7 @@ func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
 			return dbMsg(msg)
 		}
 		defer res.Body.Close()
+
 		if res.StatusCode == http.StatusCreated {
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
