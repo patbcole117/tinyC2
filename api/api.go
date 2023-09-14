@@ -11,6 +11,7 @@ import (
 )
 
 var db dbConnection = GetClient()
+var nodes []node.Node
 
 func Run() {
     r := chi.NewRouter()
@@ -30,11 +31,16 @@ func NewNode (w http.ResponseWriter, r *http.Request) {
     if err != nil {
         panic(err)
     }
+
     n := node.NewNode()
     err = json.Unmarshal(body, &n)
     if err != nil {
         panic(err)
     }
+    
+    nodes = append(nodes, n)
+    n.SrvStart()
+
     result, err := db.InsertNewNode(n)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)

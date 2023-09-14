@@ -69,7 +69,7 @@ func (n *Node) SrvStart() error {
 
 	go s.ListenAndServe()
 
-	//TODO: Test for correct name. If wrong name, ip is taken. If no response, failure.
+	
 	time.Sleep(SERVER_DEFAULT_TIMEOUT)
 
 	n.Status = LISTENING
