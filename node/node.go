@@ -23,6 +23,7 @@ const (
 )
 
 type Node struct {
+	Id 		string		`bson:"_id,omitempty" json:_id,omitempty`
 	Name   	string		`json:"name"`
 	Ip     	string   	`json:"ip"`
 	Port   	int      	`json:"port"`

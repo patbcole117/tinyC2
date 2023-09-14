@@ -27,10 +27,8 @@ type input struct {
 	textBox textinput.Model
 }
 
-type dbMsg string
-func trigNewListener() tea.Msg {
-	return dbMsg("NewListener")
-}
+type trigNewListenerMsg string
+func trigNewListener() tea.Msg {return trigNewListenerMsg("NewListener")}
 func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
 	return func() tea.Msg {
 		var msg string
@@ -42,36 +40,36 @@ func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
 		n.Port = p
 		if err != nil {
 			msg = fmt.Sprintf(`{"ERROR": "strconv.Atoi", "Msg": "%s"}`, err)
-			return dbMsg(msg)
+			return newInfoMsg(msg)
 		}
 
 		body, err := json.Marshal(n)
 		if err != nil {
 			msg = fmt.Sprintf(`{"ERROR": "json.Marshal", "Msg": "%s"}`, err)
-			return dbMsg(msg)
+			return newInfoMsg(msg)
 		}
 
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
 		if err != nil {
 			msg = fmt.Sprintf(`{"ERROR": "http.NewRequest", "Msg": "%s"}`, err)
-			return dbMsg(msg)
+			return newInfoMsg(msg)
 		}
 		req.Header.Add("Content-Type", "application/json")
 		req.Close = true
 
 		client := &http.Client{}
-		res, err := client.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			msg = fmt.Sprintf(`{"ERROR": "client.Do", "Msg": "%s"}`, err)
-			return dbMsg(msg)
+			return newInfoMsg(msg)
 		}
-		defer res.Body.Close()
+		defer resp.Body.Close()
 
-		if res.StatusCode == http.StatusCreated {
-			body, err := io.ReadAll(res.Body)
+		if resp.StatusCode == http.StatusCreated {
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err)
-				return dbMsg(msg)
+				return newInfoMsg(msg)
 			}
 	
 			jsonStr := string(body)
@@ -79,10 +77,42 @@ func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
 	
 		} else {
 			//The status is not Created. print the error.
-			msg = fmt.Sprintf(`{"ERROR": "resp.StatusCode", "Msg": "%s"}`, res.Status)
-			return dbMsg(msg)
+			msg = fmt.Sprintf(`{"ERROR": "resp.StatusCode", "Msg": "%s"}`, resp.Status)
+			return newInfoMsg(msg)
 		}
-		return setInfoMsg(msg)
+		return newInfoMsg(msg)
+	}
+}
+
+type trigGetAllListenersMsg string
+func trigGetAllListeners() tea.Msg {return trigGetAllListenersMsg("GetAllListenersMsg")}
+type getAllListenersMsg []node.Node
+func GetAllListeners(c apiConfig) tea.Cmd {
+	return func() tea.Msg {
+		var msg string
+		var nodes []node.Node
+		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l"
+	
+		resp, err := http.Get(url)
+			if err != nil {
+				msg = fmt.Sprintf(`{"ERROR": "http.Get", "Msg": "%s"}`, err)
+				return setInfoMsg(msg)
+			}
+			defer resp.Body.Close()
+	
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err)
+				return setInfoMsg(msg)
+			}
+	
+			err = json.Unmarshal(body, &nodes)
+			if err != nil {
+				msg = fmt.Sprintf(`{"ERROR": "json.Unmarshal", "Msg": "%s"}`, err)
+				return setInfoMsg(msg)
+			}
+	
+			return getAllListenersMsg(nodes)
 	}
 }
 
@@ -96,12 +126,13 @@ func saveConfig() tea.Msg {
 	return inputSaveMsg("Config")
 }
 
-type setInfoMsg string
-func changeInfoMsg(msg string) tea.Cmd {
+type newInfoMsg string
+func setInfoMsg(msg string) tea.Cmd {
 	return func() tea.Msg {
-		return setInfoMsg(msg)
+		return newInfoMsg(msg)
 	}
 }
+
 
 type setStateMsg string
 func TODOButton() tea.Msg {

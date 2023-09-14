@@ -57,8 +57,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.config.apiPort    = m.inputModel.inputs[1].textBox.Value()
             m.config.apiVer     = m.inputModel.inputs[2].textBox.Value()
             m.state = rootState
-            m := fmt.Sprintf(`{"CONFIG":{"Ip": "%s", "Port":"%s", "Ver":"%s"}}`, m.config.apiIp, m.config.apiPort, m.config.apiVer)
-            cmds = append(cmds, changeInfoMsg(m))
+            msg := fmt.Sprintf(`{"CONFIG":{"Ip": "%s", "Port":"%s", "Ver":"%s"}}`, m.config.apiIp, m.config.apiPort, m.config.apiVer)
+            m.infoMsg = msg
         }
     case inputCancelMsg:
         switch msg {
@@ -87,6 +87,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                 {text: "Stop", do: TODOButton},
                 {text: "Delete", do: TODOButton},
             }
+            cmds = append(cmds, trigGetAllListeners)
             m.tableModel = NewTableModel(butt)
             m.tableModel.table.SetCursor(0)
             m.infoMsg = "View and configure listeners."
@@ -95,15 +96,12 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.infoMsg = defaultinfoMsg
 			m.state = rootState
 		}
-    case dbMsg:
-        switch msg{
-        case "NewListener":
+    case trigNewListenerMsg:
             cmd = NewListener(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
             cmds = append(cmds, cmd)
             m.state = listenersState
-        }
-        cmds = append(cmds, changeInfoMsg(string(msg)))
-    case setInfoMsg:
+
+    case newInfoMsg:
         m.infoMsg = string(msg)
 	}
 

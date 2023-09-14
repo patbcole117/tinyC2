@@ -16,6 +16,7 @@ var nodes []node.Node
 func Run() {
     r := chi.NewRouter()
     r.Get("/", Check)
+    r.Post("/v1/l", GetAllNodes)
     r.Post("/v1/l/new", NewNode)
 
     http.ListenAndServe("127.0.0.1:8000", r)
@@ -26,16 +27,22 @@ func Check (w http.ResponseWriter, r *http.Request) {
 }
 
 func NewNode (w http.ResponseWriter, r *http.Request) {
-    var resp string
+    var msg string
     body, err := io.ReadAll(r.Body)
     if err != nil {
-        panic(err)
+        w.WriteHeader(http.StatusBadRequest)
+        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        w.Write([]byte(msg))
+        return
     }
 
     n := node.NewNode()
     err = json.Unmarshal(body, &n)
     if err != nil {
-        panic(err)
+        w.WriteHeader(http.StatusBadRequest)
+        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        w.Write([]byte(msg))
+        return
     }
     
     nodes = append(nodes, n)
@@ -44,10 +51,31 @@ func NewNode (w http.ResponseWriter, r *http.Request) {
     result, err := db.InsertNewNode(n)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        resp = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
     } else {
         w.WriteHeader(http.StatusCreated)
-        resp = fmt.Sprintf(`{"INSERT": "%s"}`, result.InsertedID,)
+        msg = fmt.Sprintf(`{"INSERT": "%s"}`, result.InsertedID,)
     }
-    w.Write([]byte(resp))
+    w.Write([]byte(msg))
+}
+
+func GetAllNodes(w http.ResponseWriter, r *http.Request) {
+    var msg string
+    var nodes []node.Node
+    nodes, err := db.GetAllNodes()
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        w.Write([]byte(msg))
+        return
+    }
+
+    resp, err := json.Marshal(nodes)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        w.Write([]byte(msg))
+        return
+    }
+    w.Write(resp)
 }

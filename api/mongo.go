@@ -21,8 +21,8 @@ type dbConnection struct {
 func GetClient() dbConnection {
 	p := os.Getenv("MONGO")
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	//uri := fmt.Sprintf("mongodb+srv://dev:%s@homenet-asia-mongodb-de.4sgvde0.mongodb.net/?retryWrites=true&w=majority", p)
-    uri := fmt.Sprintf("mongodb://root:%s@localhost:27017/?retryWrites=true&w=majority", p)
+	uri := fmt.Sprintf("mongodb+srv://dev:%s@homenet-asia-mongodb-de.4sgvde0.mongodb.net/?retryWrites=true&w=majority", p)
+    //uri := fmt.Sprintf("mongodb://root:%s@localhost:27017/?retryWrites=true&w=majority", p)
 	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
 	// Create a new client and connect to the server
 	client, err := mongo.Connect(context.TODO(), opts)
@@ -45,4 +45,20 @@ func (db dbConnection) InsertNewNode(n node.Node) (*mongo.InsertOneResult, error
 		return nil, err
 	}
 	return result, nil
+}
+
+func (db dbConnection) GetAllNodes() ([]node.Node, error) {
+	coll := db.c.Database("tinyC2").Collection("Listeners")
+	filter := bson.D{}
+	cursor, err := coll.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, err
+	}
+
+	var nodes []node.Node
+	if err = cursor.All(context.TODO(), &nodes); err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
 }
