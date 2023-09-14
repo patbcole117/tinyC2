@@ -65,7 +65,13 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         case "Config":
             m.state = rootState 
         }
-	case setStateMsg:
+    case newInfoMsg:
+        m.infoMsg = string(msg)
+    case trigNewListenerMsg:
+            cmd = NewListener(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
+            cmds = append(cmds, cmd)
+            m.state = listenersState
+    case setStateMsg:
 		switch msg {
         case "Config":
             m.state = configState
@@ -96,13 +102,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.infoMsg = defaultinfoMsg
 			m.state = rootState
 		}
-    case trigNewListenerMsg:
-            cmd = NewListener(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
-            cmds = append(cmds, cmd)
-            m.state = listenersState
-
-    case newInfoMsg:
-        m.infoMsg = string(msg)
 	}
 
     if m.state != curState {
