@@ -20,19 +20,6 @@ var (
 )
 
 var (
-	headerStyle = func() lipgloss.Style {
-		b := lipgloss.RoundedBorder()
-		b.Right = headerBar
-        b.Left = headerBar
-		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
-	}()
-    
-    helpBoxStyle = lipgloss.NewStyle().
-        Width(maxWidth).
-        Height(1).
-        BorderStyle(lipgloss.NormalBorder()).
-        BorderForeground(lipgloss.Color(secondaryColor))
-
 	bigBoxStyle = lipgloss.NewStyle().
         Width(maxWidth).
         Height(maxHeight).
@@ -50,17 +37,30 @@ var (
         Align(lipgloss.Center, lipgloss.Center).
         BorderStyle(lipgloss.NormalBorder()).
         BorderForeground(lipgloss.Color(primaryColor))
-    
-    inputLabelStyle = lipgloss.NewStyle().
-        Foreground(lipgloss.Color(primaryColor)).
-        Bold(true)
-    inputTextBoxStyle = lipgloss.NewStyle()
+
+    headerStyle = func() lipgloss.Style {
+        b := lipgloss.RoundedBorder()
+        b.Right = headerBar
+        b.Left = headerBar
+        return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
+    }()
+
+    helpBoxStyle = lipgloss.NewStyle().
+        Width(maxWidth).
+        Height(1).
+        BorderStyle(lipgloss.NormalBorder()).
+        BorderForeground(lipgloss.Color(secondaryColor))
+        
     inputBigBoxStyle = lipgloss.NewStyle().
         Width(maxWidth).
         Height(maxHeight).
         Align(lipgloss.Top, lipgloss.Top).
-        BorderForeground(lipgloss.Color(secondaryColor))    
-
+        BorderForeground(lipgloss.Color(secondaryColor)) 
+    inputLabelStyle = lipgloss.NewStyle().
+        Foreground(lipgloss.Color(primaryColor)).
+        Bold(true)
+    inputTextBoxStyle = lipgloss.NewStyle()
+       
     tableStyle = lipgloss.NewStyle().
         BorderStyle(lipgloss.NormalBorder()).
         BorderForeground(lipgloss.Color(secondaryColor))

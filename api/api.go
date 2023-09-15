@@ -24,70 +24,60 @@ func Run() {
 }
 
 func Check (w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte(`{"msg": "Good"}`))
-}
-
-func NewNode (w http.ResponseWriter, r *http.Request) {
-    var msg string
-    body, err := io.ReadAll(r.Body)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err.Error())
-        w.Write([]byte(msg))
-        return
-    }
-
-    n := node.NewNode()
-    err = json.Unmarshal(body, &n)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "json.Unmarshal", "Msg": "%s"}`, err.Error())
-        w.Write([]byte(msg))
-        return
-    }
-
-    result, err := db.InsertNewNode(n)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "db.InsertNewNode", "Msg": "%s"}`, err.Error())
-    } else {
-        w.WriteHeader(http.StatusCreated)
-        msg = fmt.Sprintf(`{"INSERT": "%s"}`, result.InsertedID,)
-    }
-    w.Write([]byte(msg))
+    w.Write([]byte(`{"CHECK": "GOOD"}`))
 }
 
 func DeleteNode (w http.ResponseWriter, r *http.Request) {
-    var msg string
+    var wmsg string
     body, err := io.ReadAll(r.Body)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err.Error())
-        w.Write([]byte(msg))
+        wmsg = fmt.Sprintf("DeleteNode:io.ReadAll %s", err.Error())
+        w.Write([]byte(wmsg))
         return
     }
 
     result, err := db.DeleteNode(string(body))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "db.DeleteNode", "Msg": "%s"}`, err.Error())
+        wmsg = fmt.Sprintf("DeleteNode:db.DeleteNode %s", err.Error())
     } else if result.DeletedCount == 0 {
         w.WriteHeader(http.StatusCreated)
-        msg = fmt.Sprintf(`{"DELETE": "%d"}`, result.DeletedCount)
+        wmsg = "NO MATCH"
     } else {
         w.WriteHeader(http.StatusCreated)
-        msg = fmt.Sprintf(`{"DELETE": "%d": "%s"}`, result.DeletedCount, string(body))
+        wmsg = fmt.Sprintf(`%d %s`, result.DeletedCount, string(body) )
     }
-    w.Write([]byte(msg))
+    w.Write([]byte(wmsg))
 }
 
-func UpdateNode (w http.ResponseWriter, r *http.Request) {
-    var msg string
+func GetAllNodes(w http.ResponseWriter, r *http.Request) {
+    var wmsg string
+    var nodes []node.Node
+    nodes, err := db.GetAllNodes()
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        wmsg = fmt.Sprintf("GetAllNodes:db.GetAllNodes %s", err.Error())
+        w.Write([]byte(wmsg))
+        return
+    }
+    resp, err := json.Marshal(nodes)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        wmsg = fmt.Sprintf("GetAllNodes:json.Marshal %s", err.Error())
+        w.Write([]byte(wmsg))
+        return
+    }
+    w.Write(resp)
+}
+
+func NewNode (w http.ResponseWriter, r *http.Request) {
+    var wmsg string
     body, err := io.ReadAll(r.Body)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err.Error())
-        w.Write([]byte(msg))
+        wmsg = fmt.Sprintf("NewNode:io.ReadAll %s", err.Error())
+        w.Write([]byte(wmsg))
         return
     }
 
@@ -95,42 +85,51 @@ func UpdateNode (w http.ResponseWriter, r *http.Request) {
     err = json.Unmarshal(body, &n)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "json.Unmarshal", "Msg": "%s"}`, err.Error())
-        w.Write([]byte(msg))
+        wmsg = fmt.Sprintf("NewNode:json.Unmarshal %s", err.Error())
+        w.Write([]byte(wmsg))
+        return
+    }
+
+    result, err := db.InsertNewNode(n)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        wmsg = fmt.Sprintf("NewNode:db.InsertNewNode %s", err.Error())
+    } else {
+        w.WriteHeader(http.StatusCreated)
+        wmsg = fmt.Sprintf("%s", result.InsertedID)
+    }
+    w.Write([]byte(wmsg))
+}
+
+func UpdateNode (w http.ResponseWriter, r *http.Request) {
+    var wmsg string
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        wmsg = fmt.Sprintf("UpdateNode:io.ReadAll %s", err.Error())
+        w.Write([]byte(wmsg))
+        return
+    }
+
+    n := node.NewNode()
+    err = json.Unmarshal(body, &n)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        wmsg = fmt.Sprintf("UpdateNode:json.Unmarshal %s", err.Error())
+        w.Write([]byte(wmsg))
         return
     }
 
     result, err := db.UpdateNode(n)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "db.UpdateNode", "Msg": "%s"}`, err.Error())
+        wmsg = fmt.Sprintf("UpdateNode:db.UpdateNode %s", err.Error())
     } else if result.ModifiedCount == 0 {
         w.WriteHeader(http.StatusCreated)
-        msg = fmt.Sprintf(`{"UPDATE": "%d"}`, result.ModifiedCount)
+        wmsg =  "NO MATCH"
     } else {
         w.WriteHeader(http.StatusCreated)
-        msg = fmt.Sprintf(`{"UPDATE": "%d" "%s"}`, result.ModifiedCount, n.Id)
+        wmsg = fmt.Sprintf(`%d %s`, result.ModifiedCount, n.Id)
     }
-    w.Write([]byte(msg))
-}
-
-func GetAllNodes(w http.ResponseWriter, r *http.Request) {
-    var msg string
-    var nodes []node.Node
-    nodes, err := db.GetAllNodes()
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "InsertNewNode", "Msg": "%s"}`, err.Error())
-        w.Write([]byte(msg))
-        return
-    }
-
-    resp, err := json.Marshal(nodes)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
-        w.Write([]byte(msg))
-        return
-    }
-    w.Write(resp)
+    w.Write([]byte(wmsg))
 }

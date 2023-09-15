@@ -39,15 +39,6 @@ func GetClient() dbConnection {
 	return dbConnection{c: client}
 }
 
-func (db dbConnection) InsertNewNode(n node.Node) (*mongo.InsertOneResult, error) {
-	coll := db.c.Database("tinyC2").Collection("Listeners")
-	result, err := coll.InsertOne(context.TODO(), n)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func (db dbConnection) DeleteNode(id string) (*mongo.DeleteResult, error) {
 	coll := db.c.Database("tinyC2").Collection("Listeners")
 	oid, err := primitive.ObjectIDFromHex(id)
@@ -55,21 +46,6 @@ func (db dbConnection) DeleteNode(id string) (*mongo.DeleteResult, error) {
 		return nil, err
 	}
 	result, err := coll.DeleteOne(context.TODO(), bson.D{{"_id", oid}})
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (db dbConnection) UpdateNode(n node.Node) (*mongo.UpdateResult, error) {
-	coll := db.c.Database("tinyC2").Collection("Listeners")
-	oid, err := primitive.ObjectIDFromHex(n.Id)
-	if err != nil {
-		return nil, err
-	}
-	filter := bson.D{{"_id", oid}}
-	update := bson.D{{"$set", bson.D{{"name", n.Name}, {"ip", n.Ip}, {"port", n.Port}}}}
-	result, err := coll.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		return nil, err
 	}
@@ -90,4 +66,28 @@ func (db dbConnection) GetAllNodes() ([]node.Node, error) {
 	}
 
 	return nodes, nil
+}
+
+func (db dbConnection) InsertNewNode(n node.Node) (*mongo.InsertOneResult, error) {
+	coll := db.c.Database("tinyC2").Collection("Listeners")
+	result, err := coll.InsertOne(context.TODO(), n)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (db dbConnection) UpdateNode(n node.Node) (*mongo.UpdateResult, error) {
+	coll := db.c.Database("tinyC2").Collection("Listeners")
+	oid, err := primitive.ObjectIDFromHex(n.Id)
+	if err != nil {
+		return nil, err
+	}
+	filter := bson.D{{"_id", oid}}
+	update := bson.D{{"$set", bson.D{{"name", n.Name}, {"ip", n.Ip}, {"port", n.Port}}}}
+	result, err := coll.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

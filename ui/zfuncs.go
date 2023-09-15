@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,15 +14,98 @@ import (
 	"github.com/patbcole117/tinyC2/node"
 )
 
-
 type button struct {
 	do   func() tea.Msg
 	text string
 }
 
+type inputCancelMsg string
+func cancelConfig() tea.Msg {
+	return inputCancelMsg("Config")
+}
+
+type inputSaveMsg string
+func saveConfig() tea.Msg {
+	return inputSaveMsg("Config")
+}
+
+type newInfoMsg string
+func setInfoMsg(msg string) tea.Cmd {
+	return func() tea.Msg {
+		return newInfoMsg(msg)
+	}
+}
+
+type syncNodesMsg []node.Node
+func SyncNodes(c apiConfig) tea.Cmd {
+	return func() tea.Msg {
+		var msg string
+		var nodes []node.Node
+		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l"
+
+		resp, err := http.Get(url)
+		if err != nil {
+			msg = errMsg("SyncNodes:http.Get", resp.Status)
+			return newInfoMsg(msg)
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			msg = errMsg("SyncNodes:io.ReadAll", resp.Status)
+			return newInfoMsg(msg)
+		}
+
+		err = json.Unmarshal(body, &nodes)
+		if err != nil {
+			msg = errMsg("SyncNodes:json.Unmarshal", resp.Status)
+			return newInfoMsg(msg)
+		}
+		return syncNodesMsg(nodes)
+	}
+}
+
+type trigDeleteNodeMsg string
+func trigDeleteNode() tea.Msg { return trigDeleteNodeMsg("DeleteNode") }
+func DeleteNode(id string, c apiConfig) tea.Cmd {
+	return func() tea.Msg {
+		var msg string
+		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/delete"
+
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte(id)))
+		if err != nil {
+			msg = errMsg("DeleteNode:http.NewRequest", err.Error())
+			return newInfoMsg(msg)
+		}
+		req.Close = true
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			msg = errMsg("DeleteNode:client.Do", err.Error())
+			return newInfoMsg(msg)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusCreated {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				msg = errMsg("DeleteNode:io.ReadAll", err.Error())
+				return newInfoMsg(msg)
+			}
+			msg = sucMsg("DELETE", string(body))
+		} else {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				msg = errMsg("DeleteNode:io.ReadAll", string(b)+err.Error())
+				return newInfoMsg(msg)
+			}
+		}
+		return newInfoMsg(msg)
+	}
+}
 
 type trigNewNodeMsg string
-func trigNewNode() tea.Msg {return trigNewNodeMsg("NewNode")}
+func trigNewNode() tea.Msg { return trigNewNodeMsg("NewNode") }
 func NewNode(name, ip, port string, c apiConfig) tea.Cmd {
 	return func() tea.Msg {
 		var msg string
@@ -34,19 +116,19 @@ func NewNode(name, ip, port string, c apiConfig) tea.Cmd {
 		p, err := strconv.Atoi(port)
 		n.Port = p
 		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "strconv.Atoi", "Msg": "%s"}`, err)
+			msg = errMsg("NewNode:strconv.Atoi", err.Error())
 			return newInfoMsg(msg)
 		}
 
 		body, err := json.Marshal(n)
 		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "json.Marshal", "Msg": "%s"}`, err)
+			msg = errMsg("NewNode:json.Marshal", err.Error())
 			return newInfoMsg(msg)
 		}
 
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
 		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "http.NewRequest", "Msg": "%s"}`, err)
+			msg = errMsg("NewNode:http.NewRequest", err.Error())
 			return newInfoMsg(msg)
 		}
 		req.Header.Add("Content-Type", "application/json")
@@ -54,7 +136,7 @@ func NewNode(name, ip, port string, c apiConfig) tea.Cmd {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "client.Do", "Msg": "%s"}`, err)
+			msg = errMsg("NewNode:client.Do", err.Error())
 			return newInfoMsg(msg)
 		}
 		defer resp.Body.Close()
@@ -62,63 +144,23 @@ func NewNode(name, ip, port string, c apiConfig) tea.Cmd {
 		if resp.StatusCode == http.StatusCreated {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err)
+				msg = errMsg("NewNode:io.ReadAll", err.Error())
 				return newInfoMsg(msg)
 			}
-	
-			jsonStr := string(body)
-			msg = fmt.Sprintf(`{"SUCCESS": "%s"}`, jsonStr)
-	
+			msg = sucMsg("NEW NODE", string(body))
 		} else {
-			//The status is not Created. print the error.
-			msg = fmt.Sprintf(`{"ERROR": "resp.StatusCode", "Msg": "%s"}`, resp.Status)
-			return newInfoMsg(msg)
-		}
-		return newInfoMsg(msg)
-	}
-}
-
-type trigDeleteNodeMsg string
-func trigDeleteNode() tea.Msg {return trigDeleteNodeMsg("DeleteNode")}
-func DeleteNode(id string, c apiConfig) tea.Cmd {
-	return func() tea.Msg {
-		var msg string
-		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/delete"
-		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte(id)))
-		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "http.NewRequest", "Msg": "%s"}`, err)
-			return newInfoMsg(msg)
-		}
-		req.Close = true
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "client.Do", "Msg": "%s"}`, err)
-			return newInfoMsg(msg)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == http.StatusCreated {
-			body, err := io.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			if err != nil {
-				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err)
+				msg = errMsg("NewNode:io.ReadAll", string(b)+err.Error())
 				return newInfoMsg(msg)
 			}
-	
-			jsonStr := string(body)
-			msg = fmt.Sprintf(`{"SUCCESS": "%s"}`, jsonStr)
-	
-		} else {
-			//The status is not Created. print the error.
-			msg = fmt.Sprintf(`{"ERROR": "resp.StatusCode", "Msg": "%s"}`, resp.Status)
-			return newInfoMsg(msg)
 		}
 		return newInfoMsg(msg)
 	}
 }
 
 type trigUpdateNodeMsg string
-func trigUpdateNode() tea.Msg {return trigUpdateNodeMsg("UpdateNode")}
+func trigUpdateNode() tea.Msg { return trigUpdateNodeMsg("UpdateNode") }
 func UpdateNode(id, name, ip, port string, c apiConfig) tea.Cmd {
 	return func() tea.Msg {
 		var msg string
@@ -130,26 +172,26 @@ func UpdateNode(id, name, ip, port string, c apiConfig) tea.Cmd {
 		p, err := strconv.Atoi(port)
 		n.Port = p
 		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "strconv.Atoi", "Msg": "%s"}`, err)
+			msg = errMsg("UpdateNode:strconv.Atoi", err.Error())
 			return newInfoMsg(msg)
 		}
 
 		body, err := json.Marshal(n)
 		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "json.Marshal", "Msg": "%s"}`, err)
+			msg = errMsg("UpdateNode:json.Marshal", err.Error())
 			return newInfoMsg(msg)
 		}
 
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
 		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "http.NewRequest", "Msg": "%s"}`, err)
+			msg = errMsg("UpdateNode:http.NewRequest", err.Error())
 			return newInfoMsg(msg)
 		}
 		req.Close = true
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			msg = fmt.Sprintf(`{"ERROR": "client.Do", "Msg": "%s"}`, err)
+			msg = errMsg("UpdateNode:client.Do", err.Error())
 			return newInfoMsg(msg)
 		}
 		defer resp.Body.Close()
@@ -157,74 +199,20 @@ func UpdateNode(id, name, ip, port string, c apiConfig) tea.Cmd {
 		if resp.StatusCode == http.StatusCreated {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err)
+				msg = errMsg("UpdateNode:io.ReadAll", err.Error())
 				return newInfoMsg(msg)
 			}
-	
-			jsonStr := string(body)
-			msg = fmt.Sprintf(`{"SUCCESS": "%s"}`, jsonStr)
-	
+			msg = sucMsg("UPDATE", string(body))
 		} else {
-			b, _ := io.ReadAll(resp.Body)
-			//The status is not Created. print the error.
-			msg = fmt.Sprintf(`{"ERROR": "resp.StatusCode", "Msg": "%s"}`, string(b))
-			return newInfoMsg(msg)
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				msg = errMsg("UpdateNode:io.ReadAll", string(b)+err.Error())
+				return newInfoMsg(msg)
+			}
 		}
 		return newInfoMsg(msg)
 	}
 }
-
-type syncNodesMsg []node.Node
-func SyncNodes(c apiConfig)  tea.Cmd {
-	return func() tea.Msg {
-		var msg string
-		var nodes []node.Node
-		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l"
-	
-		resp, err := http.Get(url)
-			if err != nil {
-				msg = fmt.Sprintf(`{"ERROR": " http.Get", "Msg": "%s"}`, resp.Status)
-			return newInfoMsg(msg)
-			}
-			defer resp.Body.Close()
-	
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, resp.Status)
-			return newInfoMsg(msg)
-			}
-	
-			err = json.Unmarshal(body, &nodes)
-			if err != nil {
-				msg = fmt.Sprintf(`{"ERROR": "json.Unmarshal", "Msg": "%s"}`, resp.Status)
-			return newInfoMsg(msg)
-			}
-
-
-
-			return syncNodesMsg(nodes)
-	}
-}
-
-type inputCancelMsg string
-func cancelConfig() tea.Msg {
-	return inputCancelMsg("Config")
-}
-
-
-type inputSaveMsg string
-func saveConfig() tea.Msg {
-	return inputSaveMsg("Config")
-}
-
-
-type newInfoMsg string
-func setInfoMsg(msg string) tea.Cmd {
-	return func() tea.Msg {
-		return newInfoMsg(msg)
-	}
-}
-
 
 type setStateMsg string
 func TODOButton() tea.Msg {
@@ -249,7 +237,6 @@ func toNodesInfoState() tea.Msg {
 	return setStateMsg("NodesInfo")
 }
 
-
 func NextFocus(cur, max int) int {
 	f := cur + 1
 	if f >= max {
@@ -271,7 +258,10 @@ func GetButtonViewComponent(buttons []button, focus int) string {
 	}
 	return bview
 }
-
+func GetFooterViewComponent() string {
+	line := strings.Repeat(borderChar, maxWidth)
+	return lipgloss.JoinHorizontal(lipgloss.Center, line)
+}
 func GetHeaderViewComponent() string {
 	lline := strings.Repeat(borderChar, 3)
 	text := headerStyle.Render(headerText)
@@ -279,70 +269,14 @@ func GetHeaderViewComponent() string {
 	return lipgloss.JoinHorizontal(lipgloss.Center, lline, text, rline)
 }
 
-func GetFooterViewComponent() string {
-	line := strings.Repeat(borderChar, maxWidth)
-	return lipgloss.JoinHorizontal(lipgloss.Center, line)
+func errMsg(strErr, msg string) string {
+	return fmt.Sprintf(`{"ERROR": "%s", "Msg": "%s"}`, strErr, msg)
 }
 
-func GetRandomBanner() string {
-	return getBanner(rand.Intn(len(banners)))
+func sucMsg(strSuc, msg string) string {
+	return fmt.Sprintf(`{"SUCCESS": "%s", "Msg": "%s"}`, strSuc, msg)
 }
 
-func getBanner(i int) string {
-	return banners[i]
-}
-
-var banners = [...]string{
-	`   **   **                     ******   **** 
-	/**  //            **   **  **////** */// *
-   ****** ** *******  //** **  **    // /    /*
-  ///**/ /**//**///**  //***  /**          *** 
-	/**  /** /**  /**   /**   /**         *//  
-	/**  /** /**  /**   **    //**    ** *     
-	//** /** ***  /**  **      //****** /******
-	 //  // ///   //  //        //////  ////// `,
-	`::::::::::: ::::::::::: ::::    ::: :::   :::  ::::::::   ::::::::  
-	 :+:         :+:     :+:+:   :+: :+:   :+: :+:    :+: :+:    :+: 
-	 +:+         +:+     :+:+:+  +:+  +:+ +:+  +:+              +:+  
-	 +#+         +#+     +#+ +:+ +#+   +#++:   +#+            +#+    
-	 +#+         +#+     +#+  +#+#+#    +#+    +#+          +#+      
-	 #+#         #+#     #+#   #+#+#    #+#    #+#    #+#  #+#       
-	 ###     ########### ###    ####    ###     ########  ########## `,
-	`######    ####    ##  ##   ##  ##    ####     ####   
-	 ##       ##     ### ##   ##  ##   ##  ##   ##  ##  
-	 ##       ##     ######   ##  ##   ##           ##  
-	 ##       ##     ######    ####    ##          ##   
-	 ##       ##     ## ###     ##     ##        ##     
-	 ##       ##     ##  ##     ##     ##  ##   ##      
-	 ##      ####    ##  ##     ##      ####    ######  `,
-	`     >=>                               >=>             
-	 >=>    >>                      >=>   >=>  >=>>=>  
-   >=>>==>     >==>>==>  >=>   >=> >=>        >>   >=> 
-	 >=>   >=>  >=>  >=>  >=> >=>  >=>            >=>  
-	 >=>   >=>  >=>  >=>    >==>   >=>           >=>   
-	 >=>   >=>  >=>  >=>     >=>    >=>   >=>  >=>     
-	  >=>  >=> >==>  >=>    >=>       >===>   >======> `,
-	`      mm      db                           .g8"""bgd          
-	  MM                                 .dP'      M          
-	mmMMmm   7MM   7MMpMMMb.   7M'    MF'dM'          pd*"*b. 
-	  MM      MM    MM    MM    VA   ,V  MM          (O)   j8 
-	  MM      MM    MM    MM     VA ,V   MM.             ,;j9 
-	  MM      MM    MM    MM      VVV     Mb.     ,'  ,-='    
-	   Mbmo .JMML..JMML  JMML.    ,V        "bmmmd'  Ammmmmmm 
-								 ,V                           
-	OOb"                            `,
-	`             __  __  
-	|_ .  _     /     _) 
-	|_ | | ) \/ \__  /__ 
-			 /           `,
-	`                88                              ,ad8888ba,    ad888888b,  
-	     ,d     ""                             d8"'     "8b  d8"     "88  
-	     88                                   d8'                    a8P  
-       MM88MMM  88  8b,dPPYba,   8b       d8  88                  ,d8P"   
-	     88     88  88P'    "8a   8b     d8'  88                a8P"      
-	     88     88  88       88    8b   d8'   Y8,             a8P'        
-	     88,    88  88       88     8b,d8'     Y8a.    .a8P  d8"          
- 	    "Y888  88  88       88      Y88'        "Y8888Y"'   88888888888  
- 							   d8'                              
-d8'`,
+func infMsg(strInf, msg string) string {
+	return fmt.Sprintf(`{"INFO": "%s", "Msg": "%s"}`, strInf, msg)
 }

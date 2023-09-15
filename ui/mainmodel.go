@@ -64,8 +64,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.config.apiIp      = m.inputModel.inputs[0].textBox.Value()
             m.config.apiPort    = m.inputModel.inputs[1].textBox.Value()
             m.config.apiVer     = m.inputModel.inputs[2].textBox.Value()
-            msg := fmt.Sprintf(`{"CONFIG":{"Ip": "%s", "Port":"%s", "Ver":"%s"}}`, m.config.apiIp, m.config.apiPort, m.config.apiVer)
-            cmds = append(cmds, setInfoMsg(msg))
+            infoMsg := infMsg("CONFIG", fmt.Sprintf(`"Ip": "%s", "Port":"%s", "Ver":"%s"`,
+                        m.config.apiIp, m.config.apiPort, m.config.apiVer))
+            cmds = append(cmds, setInfoMsg(infoMsg))
         }
     case inputCancelMsg:
         switch msg {
@@ -73,6 +74,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             cmds = append(cmds, toRootState)
         }
     case newInfoMsg:
+        time.Sleep(1 * time.Second)
         m.infoMsg = string(msg)
     case trigNewNodeMsg:
         cmds = append(cmds, toNodesState)
@@ -94,14 +96,14 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                     n1.Server = n2.Server
                     if n1.Ip != n2.Ip || n1.Port != n2.Port {
                         // Restart n2.Server.Restart
-                        msg := fmt.Sprintf(`{"REBOOT":{"Msg": "%s"}}`, n1.Id)
-                        cmds = append(cmds, setInfoMsg(msg))
+                        infoMsg := infMsg("REBOOT", n2.Id)
+                        cmds = append(cmds, setInfoMsg(infoMsg))
                     }
                 }
             }
         }
         if len(msg) != len(m.nodes) {
-            infoMsg := fmt.Sprintf(`{"NODES ADJUST":{"Msg": "%d -> %d"}}`, len(m.nodes), len(msg))
+            infoMsg := infMsg("NODE SYNC", fmt.Sprintf("%d -> %d", len(m.nodes), len(msg)))
             cmds = append(cmds, setInfoMsg(infoMsg))
         }
         m.nodes = msg
