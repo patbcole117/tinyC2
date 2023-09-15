@@ -74,7 +74,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             cmds = append(cmds, toRootState)
         }
     case newInfoMsg:
-        time.Sleep(1 * time.Second)
+        time.Sleep(500 * time.Millisecond)
         m.infoMsg = string(msg)
     case trigNewNodeMsg:
         cmds = append(cmds, toNodesState)
