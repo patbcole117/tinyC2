@@ -16,9 +16,10 @@ import (
 type state uint
 const (
     configState         state = iota
+    listenersState
+    listenerEditState
     listenerInfoState
     listenerNewState
-    listenersState
     rootState
 )
 
@@ -48,7 +49,7 @@ func NewMainModel() MainModel {
 }
 
 func (m MainModel) Init() tea.Cmd {
-	return nil
+	return SyncNodes(m.config)
 }
 
 func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -59,10 +60,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     case inputSaveMsg:
         switch msg {
         case "Config":
+            cmds = append(cmds, toRootState)
             m.config.apiIp      = m.inputModel.inputs[0].textBox.Value()
             m.config.apiPort    = m.inputModel.inputs[1].textBox.Value()
             m.config.apiVer     = m.inputModel.inputs[2].textBox.Value()
-            cmds = append(cmds, toRootState)
             msg := fmt.Sprintf(`{"CONFIG":{"Ip": "%s", "Port":"%s", "Ver":"%s"}}`, m.config.apiIp, m.config.apiPort, m.config.apiVer)
             cmds = append(cmds, setInfoMsg(msg))
         }
@@ -77,12 +78,52 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         cmds = append(cmds, toListenersState)
         cmd = NewListener(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
         cmds = append(cmds, cmd)
-            
     case trigDeleteListenerMsg:
         cmds = append(cmds, toListenersState)
         cmd = DeleteListener(m.tableModel.table.SelectedRow()[0], m.config)
         cmds = append(cmds, cmd)
-        
+    case trigUpdateNodeMsg:
+        cmds = append(cmds, toListenersState)
+        cmd = UpdateNode(m.tableModel.table.SelectedRow()[0], m.inputModel.inputs[0].textBox.Value(),
+                m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
+        cmds = append(cmds, cmd)
+    case syncNodesMsg:
+        var ns []node.Node
+        var same bool
+        for _, n2 := range msg {
+            same = false
+           for i, n1 := range m.nodes {
+                if n2.Compare(n1) {
+                    same = true
+                    reboot := false
+                    if m.nodes[i].Name != n2.Name {
+                        m.nodes[i].Name = n2.Name
+                    }
+                    if m.nodes[i].Ip != n2.Ip {
+                        m.nodes[i].Ip = n2.Ip
+                        reboot = true
+                    }
+                    if m.nodes[i].Port != n2.Port {
+                        m.nodes[i].Port = n2.Port
+                        reboot = true
+                    }
+                    if reboot {
+                        // Restart node.Server
+                        msg := fmt.Sprintf(`{"REBOOT":{"Msg": "%s"}}`, n1.Id)
+                cmds = append(cmds, setInfoMsg(msg))
+                    }
+                    break
+                }
+           }
+           if !same {
+            ns = append(ns, n2)
+           }
+        }
+        if len(ns) > 0 {
+            msg := fmt.Sprintf(`{"ADD NODES":{"Msg": "%d -> %d"}}`, len(m.nodes), len(ns) + len(m.nodes))
+            m.nodes = append(m.nodes, ns...)
+            cmds = append(cmds, setInfoMsg(msg))
+        }
     case setStateMsg:
 		switch msg {
         case "Config":
@@ -91,7 +132,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.inputModel = NewInputModel(ins, butts)
 		case "Listeners":
             m.state = listenersState
-            cmds = append(cmds, m.RefreshNodes(&m))
+            cmds = append(cmds, SyncNodes(m.config))
             t, butts := m.MakeTableModelComponents()
             m.tableModel = NewTableModel(butts, t)
         case "ListenersNew":
@@ -108,6 +149,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             } else {
                 cmds = append(cmds, setInfoMsg("There are no listeners."))
             }
+        case "ListenersEdit":
+            m.state = listenerEditState
+            ins, butts := m.MakeInputModelComponents()
+            m.inputModel = NewInputModel(ins, butts)
 		default:
             m.state = rootState
             cmds = append(cmds, setInfoMsg(defaultinfoMsg))
@@ -122,13 +167,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     }
 
 	switch m.state {
-    case configState:
-        m.inputModel, cmd = m.inputModel.Update(msg)
-        cmds = append(cmds, cmd)
-    case listenerInfoState:
-        m.inputModel, cmd = m.inputModel.Update(msg)
-        cmds = append(cmds, cmd)
-    case listenerNewState:
+    case configState, listenerEditState, listenerInfoState, listenerNewState:
         m.inputModel, cmd = m.inputModel.Update(msg)
         cmds = append(cmds, cmd)
     case listenersState:
@@ -145,7 +184,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m MainModel) View() string {
 	var s string
 	switch m.state {
-    case listenerInfoState, listenerNewState, configState:
+    case listenerEditState, listenerInfoState, listenerNewState, configState:
         s = m.inputModel.View()
 	case listenersState:
 		s = m.tableModel.View()
@@ -153,16 +192,6 @@ func (m MainModel) View() string {
 		s = m.rootModel.View()
 	}
 	return lipgloss.JoinVertical(lipgloss.Top, s, helpBoxStyle.Render(m.infoMsg))
-}
-
-func (m MainModel) RefreshNodes(pm *MainModel) tea.Cmd {
-    nodes, err := GetNodes(m.config)
-    if err != nil {
-        infoMsg := fmt.Sprintf(`{"ERROR": "GetNodes", "Msg": "%s"}`, err)
-        return setInfoMsg(infoMsg)
-    }
-    pm.nodes = nodes
-    return nil
 }
 
 func (m MainModel) MakeInputModelComponents() ([]input, []button) {
@@ -180,6 +209,32 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
             {label: "Version", textBox: textinput.New()},
         }
         p := []string{m.config.apiIp, m.config.apiPort, m.config.apiVer}
+        for i := range inputs {
+            inputs[i].textBox.Placeholder = p[i]
+            inputs[i].textBox.CharLimit   = 25
+            inputs[i].textBox.Width       = 25
+            inputs[i].textBox.Prompt      = "# "
+        }
+    case listenerEditState:
+        butts = []button {
+            {text: "Save", do: trigUpdateNode},
+            {text: "Cancel", do: toListenersState},
+        }
+        inputs = []input {
+            {label: "Name", textBox: textinput.New()},
+            {label: "Ip", textBox: textinput.New()},
+            {label: "Port", textBox: textinput.New()},
+        }
+        var p []string
+        if len(m.nodes) == 0 {
+            p = []string {"Name", "Ip", "Port"}
+        } else {
+            p = []string{
+                m.tableModel.table.SelectedRow()[1],
+                m.tableModel.table.SelectedRow()[2],
+                m.tableModel.table.SelectedRow()[3],
+            }
+        }
         for i := range inputs {
             inputs[i].textBox.Placeholder = p[i]
             inputs[i].textBox.CharLimit   = 25
@@ -217,7 +272,7 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
     case listenerNewState:
         butts = []button {
             {text: "Save", do: trigNewListener},
-            {text: "Cancel", do: TODOButton},
+            {text: "Cancel", do: toListenersState},
         }
         inputs = []input {
             {label: "Name", textBox: textinput.New()},
@@ -247,7 +302,7 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
 func (m MainModel) MakeTableModelComponents() (table.Model, []button) {
     butts := []button {
         {text: "New", do: toListenersNewState},
-        {text: "Edit", do: TODOButton},
+        {text: "Edit", do: toListenersEditState},
         {text: "Info", do: toListenersInfoState},
         {text: "Start", do: TODOButton},
         {text: "Stop", do: TODOButton},

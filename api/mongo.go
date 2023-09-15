@@ -49,13 +49,27 @@ func (db dbConnection) InsertNewNode(n node.Node) (*mongo.InsertOneResult, error
 }
 
 func (db dbConnection) DeleteNode(id string) (*mongo.DeleteResult, error) {
-
 	coll := db.c.Database("tinyC2").Collection("Listeners")
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
 	}
 	result, err := coll.DeleteOne(context.TODO(), bson.D{{"_id", oid}})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (db dbConnection) UpdateNode(n node.Node) (*mongo.UpdateResult, error) {
+	coll := db.c.Database("tinyC2").Collection("Listeners")
+	oid, err := primitive.ObjectIDFromHex(n.Id)
+	if err != nil {
+		return nil, err
+	}
+	filter := bson.D{{"_id", oid}}
+	update := bson.D{{"$set", bson.D{{"name", n.Name}, {"ip", n.Ip}, {"port", n.Port}}}}
+	result, err := coll.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		return nil, err
 	}

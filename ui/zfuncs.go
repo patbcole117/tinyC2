@@ -51,7 +51,6 @@ func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
 		}
 		req.Header.Add("Content-Type", "application/json")
 		req.Close = true
-
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -91,7 +90,6 @@ func DeleteListener(id string, c apiConfig) tea.Cmd {
 			return newInfoMsg(msg)
 		}
 		req.Close = true
-
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -119,26 +117,93 @@ func DeleteListener(id string, c apiConfig) tea.Cmd {
 	}
 }
 
-func GetNodes(c apiConfig) ([]node.Node, error) {
-	var nodes []node.Node
-	url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l"
-
-	resp, err := http.Get(url)
+type trigUpdateNodeMsg string
+func trigUpdateNode() tea.Msg {return trigUpdateNodeMsg("UpdateNode")}
+func UpdateNode(id, name, ip, port string, c apiConfig) tea.Cmd {
+	return func() tea.Msg {
+		var msg string
+		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/update"
+		n := node.NewNode()
+		n.Id = id
+		n.Name = name
+		n.Ip = ip
+		p, err := strconv.Atoi(port)
+		n.Port = p
 		if err != nil {
-			return nodes, err
+			msg = fmt.Sprintf(`{"ERROR": "strconv.Atoi", "Msg": "%s"}`, err)
+			return newInfoMsg(msg)
+		}
+
+		body, err := json.Marshal(n)
+		if err != nil {
+			msg = fmt.Sprintf(`{"ERROR": "json.Marshal", "Msg": "%s"}`, err)
+			return newInfoMsg(msg)
+		}
+
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+		if err != nil {
+			msg = fmt.Sprintf(`{"ERROR": "http.NewRequest", "Msg": "%s"}`, err)
+			return newInfoMsg(msg)
+		}
+		req.Close = true
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			msg = fmt.Sprintf(`{"ERROR": "client.Do", "Msg": "%s"}`, err)
+			return newInfoMsg(msg)
 		}
 		defer resp.Body.Close()
 
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nodes, err
+		if resp.StatusCode == http.StatusCreated {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err)
+				return newInfoMsg(msg)
+			}
+	
+			jsonStr := string(body)
+			msg = fmt.Sprintf(`{"SUCCESS": "%s"}`, jsonStr)
+	
+		} else {
+			b, _ := io.ReadAll(resp.Body)
+			//The status is not Created. print the error.
+			msg = fmt.Sprintf(`{"ERROR": "resp.StatusCode", "Msg": "%s"}`, string(b))
+			return newInfoMsg(msg)
 		}
+		return newInfoMsg(msg)
+	}
+}
 
-		err = json.Unmarshal(body, &nodes)
-		if err != nil {
-			return nodes, err
-		}
-		return nodes, nil
+type syncNodesMsg []node.Node
+func SyncNodes(c apiConfig)  tea.Cmd {
+	return func() tea.Msg {
+		var msg string
+		var nodes []node.Node
+		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l"
+	
+		resp, err := http.Get(url)
+			if err != nil {
+				msg = fmt.Sprintf(`{"ERROR": " http.Get", "Msg": "%s"}`, resp.Status)
+			return newInfoMsg(msg)
+			}
+			defer resp.Body.Close()
+	
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, resp.Status)
+			return newInfoMsg(msg)
+			}
+	
+			err = json.Unmarshal(body, &nodes)
+			if err != nil {
+				msg = fmt.Sprintf(`{"ERROR": "json.Unmarshal", "Msg": "%s"}`, resp.Status)
+			return newInfoMsg(msg)
+			}
+
+			
+
+			return syncNodesMsg(nodes)
+	}
 }
 
 type inputCancelMsg string
@@ -173,6 +238,9 @@ func toConfigState() tea.Msg {
 }
 func toListenersState() tea.Msg {
 	return setStateMsg("Listeners")
+}
+func toListenersEditState() tea.Msg {
+	return setStateMsg("ListenersEdit")
 }
 func toListenersNewState() tea.Msg {
 	return setStateMsg("ListenersNew")

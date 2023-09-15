@@ -148,3 +148,7 @@ func (n *Node) urlInfo(w http.ResponseWriter, r *http.Request) {
 	msg := string(b)
     io.WriteString(w, msg)
 }
+
+func (n1 *Node) Compare(n2 Node) bool {
+	return  n1.Id == n2.Id 
+}
