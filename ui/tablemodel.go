@@ -12,18 +12,17 @@ type TableModel struct {
 	table	table.Model
 }
 
-func NewTableModel(butt []button) TableModel {
-	return TableModel {
-		focus: 0,
-		buttons: butt,
-		table: GetDemoTable(),
-	}
+func NewTableModel(butt []button, t table.Model) TableModel{
+    return TableModel {
+        focus: 0,
+        buttons: butt,
+        table: t,
+    }
 }
 
 func (m TableModel) Update(msg tea.Msg) (TableModel, tea.Cmd) {
     var cmd tea.Cmd
     var cmds []tea.Cmd
-
     switch msg := msg.(type) {
     case tea.KeyMsg:
         switch msg.String() {
@@ -35,6 +34,7 @@ func (m TableModel) Update(msg tea.Msg) (TableModel, tea.Cmd) {
             m.focus = NextFocus(m.focus, len(m.buttons))   
         }
     }
+    
     m.table, cmd = m.table.Update(msg)
     cmds = append(cmds, cmd)
     return m, tea.Batch(cmds...)
@@ -47,3 +47,5 @@ func (m TableModel) View() string {
         tableStyle.Render(m.table.View()),
         GetFooterViewComponent(), b)
 }
+
+

@@ -8,6 +8,7 @@ import (
 
 	"github.com/patbcole117/tinyC2/node"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -41,6 +42,20 @@ func GetClient() dbConnection {
 func (db dbConnection) InsertNewNode(n node.Node) (*mongo.InsertOneResult, error) {
 	coll := db.c.Database("tinyC2").Collection("Listeners")
 	result, err := coll.InsertOne(context.TODO(), n)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (db dbConnection) DeleteNode(id string) (*mongo.DeleteResult, error) {
+
+	coll := db.c.Database("tinyC2").Collection("Listeners")
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+	result, err := coll.DeleteOne(context.TODO(), bson.D{{"_id", oid}})
 	if err != nil {
 		return nil, err
 	}

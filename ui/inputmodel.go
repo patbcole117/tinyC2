@@ -1,9 +1,15 @@
 package ui
 
 import (
+    "github.com/charmbracelet/bubbles/textinput"
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/lipgloss"
 )
+
+type input struct {
+	label   string
+	textBox textinput.Model
+}
 
 type InputModel struct {
     focus   int
@@ -27,7 +33,7 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
     case tea.KeyMsg:
         switch msg.String() {
         case "ctrl+c", "esc":
-            return m, m.buttons[1].do
+            return m, toListenersState
         case "enter":
             if m.focus >= len(m.buttons) {
                 m.focus = NextFocus(m.focus, len(m.buttons) + len(m.inputs))
@@ -63,4 +69,16 @@ func (m InputModel) View() string {
         GetInputViewComponent(m.inputs),
         GetFooterViewComponent(),
         GetButtonViewComponent(m.buttons, m.focus))
+}
+
+func GetInputViewComponent(inputs []input) string {
+	var iview string
+	var temp string
+	for x, i := range inputs {
+		temp = lipgloss.JoinVertical(lipgloss.Top,
+			inputLabelStyle.Render(i.label),
+			inputTextBoxStyle.Render(inputs[x].textBox.View()))
+		iview = lipgloss.JoinVertical(lipgloss.Top, iview, temp)
+	}
+	return inputBigBoxStyle.Render(iview)
 }

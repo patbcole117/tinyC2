@@ -11,13 +11,13 @@ import (
 )
 
 var db dbConnection = GetClient()
-var nodes []node.Node
 
 func Run() {
     r := chi.NewRouter()
     r.Get("/", Check)
-    r.Post("/v1/l", GetAllNodes)
+    r.Get("/v1/l", GetAllNodes)
     r.Post("/v1/l/new", NewNode)
+    r.Post("/v1/l/delete", DeleteNode)
 
     http.ListenAndServe("127.0.0.1:8000", r)
 }
@@ -31,7 +31,7 @@ func NewNode (w http.ResponseWriter, r *http.Request) {
     body, err := io.ReadAll(r.Body)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err.Error())
         w.Write([]byte(msg))
         return
     }
@@ -40,21 +40,39 @@ func NewNode (w http.ResponseWriter, r *http.Request) {
     err = json.Unmarshal(body, &n)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        msg = fmt.Sprintf(`{"ERROR": "json.Unmarshal", "Msg": "%s"}`, err.Error())
         w.Write([]byte(msg))
         return
     }
-    
-    nodes = append(nodes, n)
-    n.SrvStart()
 
     result, err := db.InsertNewNode(n)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        msg = fmt.Sprintf(`{"ERROR": "db.InsertNewNode", "Msg": "%s"}`, err.Error())
     } else {
         w.WriteHeader(http.StatusCreated)
         msg = fmt.Sprintf(`{"INSERT": "%s"}`, result.InsertedID,)
+    }
+    w.Write([]byte(msg))
+}
+
+func DeleteNode (w http.ResponseWriter, r *http.Request) {
+    var msg string
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        msg = fmt.Sprintf(`{"ERROR": "io.ReadAll", "Msg": "%s"}`, err.Error())
+        w.Write([]byte(msg))
+        return
+    }
+
+    result, err := db.DeleteNode(string(body))
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        msg = fmt.Sprintf(`{"ERROR": "db.DeleteNode", "Msg": "%s"}`, err.Error())
+    } else {
+        w.WriteHeader(http.StatusCreated)
+        msg = fmt.Sprintf(`{"DELETED": "%d": "%s"}`, result.DeletedCount, string(body))
     }
     w.Write([]byte(msg))
 }
@@ -65,7 +83,7 @@ func GetAllNodes(w http.ResponseWriter, r *http.Request) {
     nodes, err := db.GetAllNodes()
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        msg = fmt.Sprintf(`{"ERROR": "%s"}`, err.Error())
+        msg = fmt.Sprintf(`{"ERROR": "InsertNewNode", "Msg": "%s"}`, err.Error())
         w.Write([]byte(msg))
         return
     }
