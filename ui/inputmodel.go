@@ -33,7 +33,7 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
     case tea.KeyMsg:
         switch msg.String() {
         case "ctrl+c", "esc":
-            return m, toListenersState
+            return m, toNodesState
         case "enter":
             if m.focus >= len(m.buttons) {
                 m.focus = NextFocus(m.focus, len(m.buttons) + len(m.inputs))

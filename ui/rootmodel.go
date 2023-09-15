@@ -14,7 +14,7 @@ type RootModel struct {
 func NewRootModel() RootModel {
 	butt := []button {
         {text: "Agents", do: TODOButton},
-        {text: "Listeners",	do: toListenersState},
+        {text: "Nodes",	do: toNodesState},
 		{text: "cli", do: TODOButton},
 		{text: "Config", do: toConfigState},
     }

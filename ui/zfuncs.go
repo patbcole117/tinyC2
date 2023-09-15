@@ -22,9 +22,9 @@ type button struct {
 }
 
 
-type trigNewListenerMsg string
-func trigNewListener() tea.Msg {return trigNewListenerMsg("NewListener")}
-func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
+type trigNewNodeMsg string
+func trigNewNode() tea.Msg {return trigNewNodeMsg("NewNode")}
+func NewNode(name, ip, port string, c apiConfig) tea.Cmd {
 	return func() tea.Msg {
 		var msg string
 		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/new"
@@ -78,9 +78,9 @@ func NewListener(name, ip, port string, c apiConfig) tea.Cmd {
 	}
 }
 
-type trigDeleteListenerMsg string
-func trigDeleteListener() tea.Msg {return trigDeleteListenerMsg("DeleteListener")}
-func DeleteListener(id string, c apiConfig) tea.Cmd {
+type trigDeleteNodeMsg string
+func trigDeleteNode() tea.Msg {return trigDeleteNodeMsg("DeleteNode")}
+func DeleteNode(id string, c apiConfig) tea.Cmd {
 	return func() tea.Msg {
 		var msg string
 		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/delete"
@@ -200,7 +200,7 @@ func SyncNodes(c apiConfig)  tea.Cmd {
 			return newInfoMsg(msg)
 			}
 
-			
+
 
 			return syncNodesMsg(nodes)
 	}
@@ -236,17 +236,17 @@ func toRootState() tea.Msg {
 func toConfigState() tea.Msg {
 	return setStateMsg("Config")
 }
-func toListenersState() tea.Msg {
-	return setStateMsg("Listeners")
+func toNodesState() tea.Msg {
+	return setStateMsg("Nodes")
 }
-func toListenersEditState() tea.Msg {
-	return setStateMsg("ListenersEdit")
+func toNodesEditState() tea.Msg {
+	return setStateMsg("NodesEdit")
 }
-func toListenersNewState() tea.Msg {
-	return setStateMsg("ListenersNew")
+func toNodesNewState() tea.Msg {
+	return setStateMsg("NodesNew")
 }
-func toListenersInfoState() tea.Msg {
-	return setStateMsg("ListenersInfo")
+func toNodesInfoState() tea.Msg {
+	return setStateMsg("NodesInfo")
 }
 
 

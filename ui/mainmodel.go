@@ -16,10 +16,10 @@ import (
 type state uint
 const (
     configState         state = iota
-    listenersState
-    listenerEditState
-    listenerInfoState
-    listenerNewState
+    nodesState
+    nodeEditState
+    nodeInfoState
+    nodeNewState
     rootState
 )
 
@@ -74,83 +74,64 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         }
     case newInfoMsg:
         m.infoMsg = string(msg)
-    case trigNewListenerMsg:
-        cmds = append(cmds, toListenersState)
-        cmd = NewListener(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
+    case trigNewNodeMsg:
+        cmds = append(cmds, toNodesState)
+        cmd = NewNode(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
         cmds = append(cmds, cmd)
-    case trigDeleteListenerMsg:
-        cmds = append(cmds, toListenersState)
-        cmd = DeleteListener(m.tableModel.table.SelectedRow()[0], m.config)
+    case trigDeleteNodeMsg:
+        cmds = append(cmds, toNodesState)
+        cmd = DeleteNode(m.tableModel.table.SelectedRow()[0], m.config)
         cmds = append(cmds, cmd)
     case trigUpdateNodeMsg:
-        cmds = append(cmds, toListenersState)
+        cmds = append(cmds, toNodesState)
         cmd = UpdateNode(m.tableModel.table.SelectedRow()[0], m.inputModel.inputs[0].textBox.Value(),
                 m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
         cmds = append(cmds, cmd)
     case syncNodesMsg:
-        var ns []node.Node
-        var same bool
-        for _, n2 := range msg {
-            same = false
-           for i, n1 := range m.nodes {
-                if n2.Compare(n1) {
-                    same = true
-                    reboot := false
-                    if m.nodes[i].Name != n2.Name {
-                        m.nodes[i].Name = n2.Name
-                    }
-                    if m.nodes[i].Ip != n2.Ip {
-                        m.nodes[i].Ip = n2.Ip
-                        reboot = true
-                    }
-                    if m.nodes[i].Port != n2.Port {
-                        m.nodes[i].Port = n2.Port
-                        reboot = true
-                    }
-                    if reboot {
-                        // Restart node.Server
+        for _, n1 := range msg {
+            for _, n2 := range m.nodes      {
+                if n1.Id == n2.Id {
+                    n1.Server = n2.Server
+                    if n1.Ip != n2.Ip || n1.Port != n2.Port {
+                        // Restart n2.Server.Restart
                         msg := fmt.Sprintf(`{"REBOOT":{"Msg": "%s"}}`, n1.Id)
-                cmds = append(cmds, setInfoMsg(msg))
+                        cmds = append(cmds, setInfoMsg(msg))
                     }
-                    break
                 }
-           }
-           if !same {
-            ns = append(ns, n2)
-           }
+            }
         }
-        if len(ns) > 0 {
-            msg := fmt.Sprintf(`{"ADD NODES":{"Msg": "%d -> %d"}}`, len(m.nodes), len(ns) + len(m.nodes))
-            m.nodes = append(m.nodes, ns...)
-            cmds = append(cmds, setInfoMsg(msg))
+        if len(msg) != len(m.nodes) {
+            infoMsg := fmt.Sprintf(`{"NODES ADJUST":{"Msg": "%d -> %d"}}`, len(m.nodes), len(msg))
+            cmds = append(cmds, setInfoMsg(infoMsg))
         }
+        m.nodes = msg
     case setStateMsg:
 		switch msg {
         case "Config":
             m.state = configState
             ins, butts := m.MakeInputModelComponents()
             m.inputModel = NewInputModel(ins, butts)
-		case "Listeners":
-            m.state = listenersState
+		case "Nodes":
+            m.state = nodesState
             cmds = append(cmds, SyncNodes(m.config))
             t, butts := m.MakeTableModelComponents()
             m.tableModel = NewTableModel(butts, t)
-        case "ListenersNew":
-            m.state = listenerNewState
-            m.infoMsg = "Create a new listener."
+        case "NodesNew":
+            m.state = nodeNewState
+            m.infoMsg = "Create a new node."
             ins, butts := m.MakeInputModelComponents()
             m.inputModel = NewInputModel(ins, butts)
-        case "ListenersInfo":
+        case "NodesInfo":
             if len(m.nodes) != 0 {
-                m.state = listenerInfoState
+                m.state = nodeInfoState
                 m.tableModel.table.SelectedRow()
                 ins, butts := m.MakeInputModelComponents()
                 m.inputModel = NewInputModel(ins, butts)
             } else {
-                cmds = append(cmds, setInfoMsg("There are no listeners."))
+                cmds = append(cmds, setInfoMsg("There are no nodes."))
             }
-        case "ListenersEdit":
-            m.state = listenerEditState
+        case "NodesEdit":
+            m.state = nodeEditState
             ins, butts := m.MakeInputModelComponents()
             m.inputModel = NewInputModel(ins, butts)
 		default:
@@ -167,10 +148,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     }
 
 	switch m.state {
-    case configState, listenerEditState, listenerInfoState, listenerNewState:
+    case configState, nodeEditState, nodeInfoState, nodeNewState:
         m.inputModel, cmd = m.inputModel.Update(msg)
         cmds = append(cmds, cmd)
-    case listenersState:
+    case nodesState:
         m.tableModel.table.Focus()
         m.tableModel, cmd = m.tableModel.Update(msg)
         cmds = append(cmds, cmd)
@@ -184,9 +165,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m MainModel) View() string {
 	var s string
 	switch m.state {
-    case listenerEditState, listenerInfoState, listenerNewState, configState:
+    case nodeEditState, nodeInfoState, nodeNewState, configState:
         s = m.inputModel.View()
-	case listenersState:
+	case nodesState:
 		s = m.tableModel.View()
 	default:
 		s = m.rootModel.View()
@@ -215,10 +196,10 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
             inputs[i].textBox.Width       = 25
             inputs[i].textBox.Prompt      = "# "
         }
-    case listenerEditState:
+    case nodeEditState:
         butts = []button {
             {text: "Save", do: trigUpdateNode},
-            {text: "Cancel", do: toListenersState},
+            {text: "Cancel", do: toNodesState},
         }
         inputs = []input {
             {label: "Name", textBox: textinput.New()},
@@ -241,7 +222,7 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
             inputs[i].textBox.Width       = 25
             inputs[i].textBox.Prompt      = "# "
         }
-    case listenerInfoState:
+    case nodeInfoState:
         var n node.Node
         for _, v := range m.nodes {
             if v.Id == m.tableModel.table.SelectedRow()[0]{
@@ -250,7 +231,7 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
             }
         }
         butts = []button {
-            {text: "Return", do: toListenersState},
+            {text: "Return", do: toNodesState},
         }
         inputs = []input {
             {label: "_id", textBox: textinput.New()},
@@ -269,10 +250,10 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
             inputs[i].textBox.Width       = 50
             inputs[i].textBox.Prompt      = "# "
         }
-    case listenerNewState:
+    case nodeNewState:
         butts = []button {
-            {text: "Save", do: trigNewListener},
-            {text: "Cancel", do: toListenersState},
+            {text: "Save", do: trigNewNode},
+            {text: "Cancel", do: toNodesState},
         }
         inputs = []input {
             {label: "Name", textBox: textinput.New()},
@@ -301,12 +282,12 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
 
 func (m MainModel) MakeTableModelComponents() (table.Model, []button) {
     butts := []button {
-        {text: "New", do: toListenersNewState},
-        {text: "Edit", do: toListenersEditState},
-        {text: "Info", do: toListenersInfoState},
+        {text: "New", do: toNodesNewState},
+        {text: "Edit", do: toNodesEditState},
+        {text: "Info", do: toNodesInfoState},
         {text: "Start", do: TODOButton},
         {text: "Stop", do: TODOButton},
-        {text: "Delete", do: trigDeleteListener},
+        {text: "Delete", do: trigDeleteNode},
     }
     
     t := m.GetNodesTable()

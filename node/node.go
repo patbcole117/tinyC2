@@ -30,7 +30,7 @@ type Node struct {
 	Status 	int      	`json:"status"`
     Dob     time.Time	`json:"dob"`
 	Hello 	time.Time	`json:"hello"`
-	server 	*http.Server    `json:"server,omitempty"`
+	Server 	*http.Server    `json:"server,omitempty"`
 }
 
 func NewNode() Node {
@@ -66,7 +66,7 @@ func (n *Node) SrvStart() error {
 	m.HandleFunc("/", n.urlRoot)
 	m.HandleFunc("/info", n.urlInfo)
 
-	n.server = &s
+	n.Server = &s
 
 	go s.ListenAndServe()
 
@@ -78,7 +78,7 @@ func (n *Node) SrvStart() error {
 }
 
 func (n *Node) SrvStop() error {
-	err := n.server.Close()
+	err := n.Server.Close()
 	time.Sleep(SERVER_DEFAULT_TIMEOUT)
 	n.Status = STOPPED
 	return err
