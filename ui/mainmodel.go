@@ -86,8 +86,19 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         cmds = append(cmds, cmd)
     case trigUpdateNodeMsg:
         cmds = append(cmds, toNodesState)
-        cmd = UpdateNode(m.tableModel.table.SelectedRow()[0], m.inputModel.inputs[0].textBox.Value(),
-                m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
+        name := m.inputModel.inputs[0].textBox.Value()
+        ip := m.inputModel.inputs[1].textBox.Value()
+        port := m.inputModel.inputs[2].textBox.Value()
+        if name == "" {
+            name = m.inputModel.inputs[0].textBox.Placeholder
+        }
+        if ip == "" {
+            ip = m.inputModel.inputs[1].textBox.Placeholder
+        }
+        if port == "" {
+            port = m.inputModel.inputs[2].textBox.Placeholder
+        }
+        cmd = UpdateNode(m.tableModel.table.SelectedRow()[0], name, ip, port, m.config)
         cmds = append(cmds, cmd)
     case syncNodesMsg:
         for _, n1 := range msg {

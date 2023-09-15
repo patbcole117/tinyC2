@@ -109,6 +109,11 @@ func trigNewNode() tea.Msg { return trigNewNodeMsg("NewNode") }
 func NewNode(name, ip, port string, c apiConfig) tea.Cmd {
 	return func() tea.Msg {
 		var msg string
+		if name == "" || ip == "" || port == "" {
+			msg = errMsg("NewNode:InputValidation","EMPTY FIELD")
+			return newInfoMsg(msg)
+		}
+		
 		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/new"
 		n := node.NewNode()
 		n.Name = name
