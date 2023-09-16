@@ -74,7 +74,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             cmds = append(cmds, toRootState)
         }
     case newInfoMsg:
-        time.Sleep(500 * time.Millisecond)
+        time.Sleep(100 * time.Millisecond)
         m.infoMsg = string(msg)
     case trigNewNodeMsg:
         cmds = append(cmds, toNodesState)
@@ -90,9 +90,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             id := m.tableModel.table.SelectedRow()[0]
             for i := range m.nodes {
                 if m.nodes[i].Id == id {
-                    err := m.nodes[i].SrvStop(); if err != nil {
-                        infoMsg = errMsg("trigToggleNode:SrvStop", m.nodes[i].Id)
-                    }
+                    cmds = append(cmds, StopNodeServer(&(m.nodes[i])))
+                    m.nodes[i].Status = node.STOPPED
                     cmds = append(cmds, DeleteNode(m.tableModel.table.SelectedRow()[0], m.config))
                 }
             }
@@ -107,13 +106,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             for i := range m.nodes {
                 if m.nodes[i].Id == id {
                     if string(msg) == "START"{
-                        err := m.nodes[i].SrvStart(); if err != nil {
-                            infoMsg = errMsg("trigToggleNode:SrvStart",err.Error())
-                        }
+                        cmds = append(cmds, StartNodeServer(&(m.nodes[i])))
+                        m.nodes[i].Status = node.LISTENING
                     } else {
-                        err := m.nodes[i].SrvStop(); if err != nil {
-                            infoMsg = errMsg("trigToggleNode:SrvStop", err.Error())
-                        }
+                        cmds = append(cmds, StopNodeServer(&(m.nodes[i])))
+                        m.nodes[i].Status = node.STOPPED
                     }
                     cmds = append(cmds, UpdateNode(m.nodes[i], m.config))
                 }
@@ -139,9 +136,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                     if m.inputModel.inputs[2].textBox.Value() != "" {
                         m.nodes[i].Port, _ = strconv.Atoi(m.inputModel.inputs[2].textBox.Value())
                     }
-                    err := m.nodes[i].SrvStop(); if err != nil {
-                        infoMsg = errMsg("trigToggleNode:SrvStop", m.nodes[i].Id)
-                    }
+                    cmds = append(cmds, StopNodeServer(&(m.nodes[i])))
+                    m.nodes[i].Status = node.STOPPED
                     cmds = append(cmds, UpdateNode(m.nodes[i], m.config))
                 }
             }
@@ -152,10 +148,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             for i := range m.nodes      {
                 if msg[j].Id == m.nodes[i].Id {
                     msg[j].Server = m.nodes[i].Server
-                    if msg[j].Ip != m.nodes[i].Ip || msg[j].Port != m.nodes[i].Port {
-                        infoMsg := infMsg("REBOOT REQUIRED", m.nodes[i].Id)
-                        cmds = append(cmds, setInfoMsg(infoMsg))
-                    }
+                    
                 }
             }
         }
@@ -164,6 +157,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             cmds = append(cmds, setInfoMsg(infoMsg))
         }
         m.nodes = msg
+        c := m.tableModel.table.Cursor()
+        t, _ := m.MakeTableModelComponents()
+        m.tableModel.table = t
+        m.tableModel.table.SetCursor(c)
     case setStateMsg:
 		switch msg {
         case "Config":
@@ -172,7 +169,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.inputModel = NewInputModel(ins, butts)
 		case "Nodes":
             m.state = nodesState
-            cmds = append(cmds, SyncNodes(m.config))
             t, butts := m.MakeTableModelComponents()
             m.tableModel = NewTableModel(butts, t)
         case "NodesNew":
@@ -214,6 +210,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         m.tableModel.table.Focus()
         m.tableModel, cmd = m.tableModel.Update(msg)
         cmds = append(cmds, cmd)
+        cmds = append(cmds, SyncNodes(m.config))
 	default:
 		m.rootModel, cmd = m.rootModel.Update(msg)
         cmds = append(cmds, cmd)

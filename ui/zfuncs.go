@@ -36,6 +36,26 @@ func setInfoMsg(msg string) tea.Cmd {
 	}
 }
 
+func StartNodeServer(n *node.Node) tea.Cmd {
+	return func () tea.Msg {
+		var infoMsg string
+		err := n.SrvStart(); if err != nil {
+			infoMsg = errMsg("StartNodeServer:SrvStart",err.Error())
+		}
+		return setInfoMsg(infoMsg)
+	}
+}
+
+func StopNodeServer(n *node.Node) tea.Cmd {
+	return func () tea.Msg {
+		var infoMsg string
+		err := n.SrvStop(); if err != nil {
+			infoMsg = errMsg("StopNodeServer:SrvStart",err.Error())
+		}
+		return setInfoMsg(infoMsg)
+	}
+}
+
 type syncNodesMsg []node.Node
 func SyncNodes(c apiConfig) tea.Cmd {
 	return func() tea.Msg {
