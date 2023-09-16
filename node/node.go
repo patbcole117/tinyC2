@@ -2,6 +2,7 @@ package node
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -78,6 +79,12 @@ func (n *Node) SrvStart() error {
 }
 
 func (n *Node) SrvStop() error {
+	defer func() error {
+		if r := recover(); r != nil {
+			return errors.New("NIL")
+		}
+		return nil
+	}()
 	if err := n.Server.Close(); err != nil {
 		time.Sleep(SERVER_DEFAULT_TIMEOUT)
 		return err

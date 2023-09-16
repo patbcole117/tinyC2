@@ -173,7 +173,7 @@ func UpdateNode(n node.Node, c apiConfig) tea.Cmd {
 	return func() tea.Msg {
 		var msg string
 		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/update"
-
+		n.Server = nil
 		body, err := json.Marshal(n)
 		if err != nil {
 			msg = errMsg("UpdateNode:json.Marshal", err.Error())

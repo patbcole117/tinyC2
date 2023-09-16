@@ -82,9 +82,22 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                     m.inputModel.inputs[2].textBox.Value(), m.config)
         cmds = append(cmds, cmd)
     case trigDeleteNodeMsg:
-        cmds = append(cmds, toNodesState)
-        cmd = DeleteNode(m.tableModel.table.SelectedRow()[0], m.config)
-        cmds = append(cmds, cmd)
+        var infoMsg string
+        if len(m.nodes) == 0 {
+            infoMsg := "No nodes."
+            cmds = append(cmds, setInfoMsg(infoMsg))
+        } else {
+            id := m.tableModel.table.SelectedRow()[0]
+            for i := range m.nodes {
+                if m.nodes[i].Id == id {
+                    err := m.nodes[i].SrvStop(); if err != nil {
+                        infoMsg = errMsg("trigToggleNode:SrvStop", m.nodes[i].Id)
+                    }
+                    cmds = append(cmds, DeleteNode(m.tableModel.table.SelectedRow()[0], m.config))
+                }
+            }
+        }
+        cmds = append(cmds, setInfoMsg(infoMsg))
     case trigToggleNodeMsg:
         var infoMsg string
         if len(m.nodes) == 0 {
@@ -95,16 +108,14 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                 if m.nodes[i].Id == id {
                     if string(msg) == "START"{
                         err := m.nodes[i].SrvStart(); if err != nil {
-                            infoMsg = errMsg("trigToggleNode:SrvStart", m.nodes[i].Id)
+                            infoMsg = errMsg("trigToggleNode:SrvStart",err.Error())
                         }
                     } else {
                         err := m.nodes[i].SrvStop(); if err != nil {
-                            infoMsg = errMsg("trigToggleNode:SrvStop", m.nodes[i].Id)
+                            infoMsg = errMsg("trigToggleNode:SrvStop", err.Error())
                         }
                     }
                     cmds = append(cmds, UpdateNode(m.nodes[i], m.config))
-                } else {
-                    infoMsg = errMsg("NO MATCH", m.nodes[i].Id)
                 }
             }  
         }
@@ -128,21 +139,21 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                     if m.inputModel.inputs[2].textBox.Value() != "" {
                         m.nodes[i].Port, _ = strconv.Atoi(m.inputModel.inputs[2].textBox.Value())
                     }
+                    err := m.nodes[i].SrvStop(); if err != nil {
+                        infoMsg = errMsg("trigToggleNode:SrvStop", m.nodes[i].Id)
+                    }
                     cmds = append(cmds, UpdateNode(m.nodes[i], m.config))
-                } else {
-                    infoMsg = errMsg("NO MATCH", m.nodes[i].Id)
                 }
             }
         }
         cmds = append(cmds, setInfoMsg(infoMsg))
     case syncNodesMsg:
-        for _, n1 := range msg {
-            for _, n2 := range m.nodes      {
-                if n1.Id == n2.Id {
-                    n1.Server = n2.Server
-                    if n1.Ip != n2.Ip || n1.Port != n2.Port {
-                        // Restart n2.Server.Restart
-                        infoMsg := infMsg("REBOOT", n2.Id)
+        for j := range msg {
+            for i := range m.nodes      {
+                if msg[j].Id == m.nodes[i].Id {
+                    msg[j].Server = m.nodes[i].Server
+                    if msg[j].Ip != m.nodes[i].Ip || msg[j].Port != m.nodes[i].Port {
+                        infoMsg := infMsg("REBOOT REQUIRED", m.nodes[i].Id)
                         cmds = append(cmds, setInfoMsg(infoMsg))
                     }
                 }
