@@ -111,7 +111,7 @@ func UpdateNode (w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    n := node.NewNode()
+    var n node.Node
     err = json.Unmarshal(body, &n)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)

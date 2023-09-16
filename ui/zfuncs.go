@@ -164,22 +164,15 @@ func NewNode(name, ip, port string, c apiConfig) tea.Cmd {
 	}
 }
 
+type trigToggleNodeMsg string
+func trigStartNode() tea.Msg { return trigToggleNodeMsg("START")}
+func trigStopNode() tea.Msg { return trigToggleNodeMsg("STOP")}
 type trigUpdateNodeMsg string
 func trigUpdateNode() tea.Msg { return trigUpdateNodeMsg("UpdateNode") }
-func UpdateNode(id, name, ip, port string, c apiConfig) tea.Cmd {
+func UpdateNode(n node.Node, c apiConfig) tea.Cmd {
 	return func() tea.Msg {
 		var msg string
 		url := "http://" + c.apiIp + ":" + c.apiPort + "/" + c.apiVer + "/l/update"
-		n := node.NewNode()
-		n.Id = id
-		n.Name = name
-		n.Ip = ip
-		p, err := strconv.Atoi(port)
-		n.Port = p
-		if err != nil {
-			msg = errMsg("UpdateNode:strconv.Atoi", err.Error())
-			return newInfoMsg(msg)
-		}
 
 		body, err := json.Marshal(n)
 		if err != nil {

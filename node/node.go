@@ -78,10 +78,12 @@ func (n *Node) SrvStart() error {
 }
 
 func (n *Node) SrvStop() error {
-	err := n.Server.Close()
-	time.Sleep(SERVER_DEFAULT_TIMEOUT)
+	if err := n.Server.Close(); err != nil {
+		time.Sleep(SERVER_DEFAULT_TIMEOUT)
+		return err
+	}
 	n.Status = STOPPED
-	return err
+	return nil
 }
 
 func (n *Node) UnmarshalJSON(j []byte) error {

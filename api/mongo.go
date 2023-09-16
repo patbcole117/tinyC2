@@ -84,7 +84,7 @@ func (db dbConnection) UpdateNode(n node.Node) (*mongo.UpdateResult, error) {
 		return nil, err
 	}
 	filter := bson.D{{"_id", oid}}
-	update := bson.D{{"$set", bson.D{{"name", n.Name}, {"ip", n.Ip}, {"port", n.Port}}}}
+	update := bson.D{{"$set", bson.D{{"name", n.Name}, {"ip", n.Ip}, {"port", n.Port}, {"status", n.Status}}}}
 	result, err := coll.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		return nil, err

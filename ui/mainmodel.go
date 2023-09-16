@@ -78,28 +78,63 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         m.infoMsg = string(msg)
     case trigNewNodeMsg:
         cmds = append(cmds, toNodesState)
-        cmd = NewNode(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(), m.inputModel.inputs[2].textBox.Value(), m.config)
+        cmd = NewNode(m.inputModel.inputs[0].textBox.Value(), m.inputModel.inputs[1].textBox.Value(),
+                    m.inputModel.inputs[2].textBox.Value(), m.config)
         cmds = append(cmds, cmd)
     case trigDeleteNodeMsg:
         cmds = append(cmds, toNodesState)
         cmd = DeleteNode(m.tableModel.table.SelectedRow()[0], m.config)
         cmds = append(cmds, cmd)
+    case trigToggleNodeMsg:
+        var infoMsg string
+        if len(m.nodes) == 0 {
+            infoMsg = "No nodes."
+        } else {
+            id := m.tableModel.table.SelectedRow()[0]
+            for i := range m.nodes {
+                if m.nodes[i].Id == id {
+                    if string(msg) == "START"{
+                        err := m.nodes[i].SrvStart(); if err != nil {
+                            infoMsg = errMsg("trigToggleNode:SrvStart", m.nodes[i].Id)
+                        }
+                    } else {
+                        err := m.nodes[i].SrvStop(); if err != nil {
+                            infoMsg = errMsg("trigToggleNode:SrvStop", m.nodes[i].Id)
+                        }
+                    }
+                    cmds = append(cmds, UpdateNode(m.nodes[i], m.config))
+                } else {
+                    infoMsg = errMsg("NO MATCH", m.nodes[i].Id)
+                }
+            }  
+        }
+        cmds = append(cmds, setInfoMsg(infoMsg))
     case trigUpdateNodeMsg:
         cmds = append(cmds, toNodesState)
-        name := m.inputModel.inputs[0].textBox.Value()
-        ip := m.inputModel.inputs[1].textBox.Value()
-        port := m.inputModel.inputs[2].textBox.Value()
-        if name == "" {
-            name = m.inputModel.inputs[0].textBox.Placeholder
+        var infoMsg string
+        if len(m.nodes) == 0 {
+            infoMsg := "No nodes."
+            cmds = append(cmds, setInfoMsg(infoMsg))
+        } else {
+            id := m.tableModel.table.SelectedRow()[0]
+            for i := range m.nodes {
+                if m.nodes[i].Id == id {
+                    if m.inputModel.inputs[0].textBox.Value() != "" {
+                        m.nodes[i].Name = m.inputModel.inputs[0].textBox.Value()
+                    }
+                    if m.inputModel.inputs[1].textBox.Value() != "" {
+                        m.nodes[i].Ip = m.inputModel.inputs[1].textBox.Value()
+                    }
+                    if m.inputModel.inputs[2].textBox.Value() != "" {
+                        m.nodes[i].Port, _ = strconv.Atoi(m.inputModel.inputs[2].textBox.Value())
+                    }
+                    cmds = append(cmds, UpdateNode(m.nodes[i], m.config))
+                } else {
+                    infoMsg = errMsg("NO MATCH", m.nodes[i].Id)
+                }
+            }
         }
-        if ip == "" {
-            ip = m.inputModel.inputs[1].textBox.Placeholder
-        }
-        if port == "" {
-            port = m.inputModel.inputs[2].textBox.Placeholder
-        }
-        cmd = UpdateNode(m.tableModel.table.SelectedRow()[0], name, ip, port, m.config)
-        cmds = append(cmds, cmd)
+        cmds = append(cmds, setInfoMsg(infoMsg))
     case syncNodesMsg:
         for _, n1 := range msg {
             for _, n2 := range m.nodes      {
@@ -256,7 +291,7 @@ func (m MainModel) MakeInputModelComponents() ([]input, []button) {
             {label: "Hello", textBox: textinput.New()},
         }
         p := []string{n.Id, n.Name, n.Ip, strconv.Itoa(n.Port), strconv.Itoa(n.Status),
-            n.Dob.Format(time.RFC3339), n.Hello.Format(time.RFC3339)}
+            n.Dob.Format(time.RFC3339), n.Hello.Format(time.RFC3339),}
         for i := range inputs {
             inputs[i].textBox.Placeholder = p[i]
             inputs[i].textBox.CharLimit   = 50
@@ -298,8 +333,8 @@ func (m MainModel) MakeTableModelComponents() (table.Model, []button) {
         {text: "New", do: toNodesNewState},
         {text: "Edit", do: toNodesEditState},
         {text: "Info", do: toNodesInfoState},
-        {text: "Start", do: TODOButton},
-        {text: "Stop", do: TODOButton},
+        {text: "Start", do: trigStartNode},
+        {text: "Stop", do: trigStopNode},
         {text: "Delete", do: trigDeleteNode},
     }
     
