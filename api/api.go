@@ -43,7 +43,7 @@ func DeleteNode (w http.ResponseWriter, r *http.Request) {
         wmsg = fmt.Sprintf("DeleteNode:db.DeleteNode %s", err.Error())
     } else if result.DeletedCount == 0 {
         w.WriteHeader(http.StatusCreated)
-        wmsg = "NO MATCH"
+        wmsg = "NO CHANGE"
     } else {
         w.WriteHeader(http.StatusCreated)
         wmsg = fmt.Sprintf(`%d %s`, result.DeletedCount, string(body) )
@@ -126,7 +126,7 @@ func UpdateNode (w http.ResponseWriter, r *http.Request) {
         wmsg = fmt.Sprintf("UpdateNode:db.UpdateNode %s", err.Error())
     } else if result.ModifiedCount == 0 {
         w.WriteHeader(http.StatusCreated)
-        wmsg =  "NO MATCH"
+        wmsg =  "NO CHANGE"
     } else {
         w.WriteHeader(http.StatusCreated)
         wmsg = fmt.Sprintf(`%d %s`, result.ModifiedCount, n.Id)
