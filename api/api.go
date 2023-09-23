@@ -2,134 +2,281 @@ package api
 
 import (
 	"encoding/json"
-    "fmt"
-    "io"
+	"fmt"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 
+	//"strings"
+
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/patbcole117/tinyC2/node"
 )
 
-var db dbConnection = GetClient()
+var (
+    db	            dbManager   = NewDBManager()
+    url             string      = "127.0.0.1:8000"
+    d               Dispatcher = *NewDispatcher()
+)
 
 func Run() {
     r := chi.NewRouter()
-    r.Get("/", Check)
-    r.Get("/v1/l", GetAllNodes)
-    r.Post("/v1/l/new", NewNode)
-    r.Post("/v1/l/delete", DeleteNode)
-    r.Post("/v1/l/update", UpdateNode)
-
-    http.ListenAndServe("127.0.0.1:8000", r)
+    r.Use(middleware.Logger)
+    r.Get("/",                   Check)
+    r.Get("/v1/l/",              GetNodes)
+    r.Get("/v1/l/new/",          NewNode)
+    r.Get("/v1/l/{id}/",         GetNode)
+    r.Post("/v1/l/{id}/",        UpdateNode)
+    r.Get("/v1/l/{id}/start/",   StartNode)
+    r.Get("/v1/l/{id}/stop/",    StopNode)
+    r.Get("/v1/l/{id}/x/",       DeleteNode)
+    fmt.Println("[+] ready")
+    http.ListenAndServe(url, r)
 }
 
 func Check (w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte(`{"CHECK": "GOOD"}`))
+    _, bmsg := FgoodMsg("check.")
+    w.Write(bmsg)
 }
 
-func DeleteNode (w http.ResponseWriter, r *http.Request) {
-    var wmsg string
-    body, err := io.ReadAll(r.Body)
+func DeleteNode(w http.ResponseWriter, r *http.Request) {
+    id, err := strconv.Atoi(chi.URLParam(r, "id"))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("DeleteNode:io.ReadAll %s", err.Error())
-        w.Write([]byte(wmsg))
+        _, bmsg := FbadMsg("DeleteNode->strconv.Atoi->"+err.Error())
+        w.Write(bmsg)
         return
     }
 
-    result, err := db.DeleteNode(string(body))
+    _, err = db.DeleteNode(id)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("DeleteNode:db.DeleteNode %s", err.Error())
-    } else if result.DeletedCount == 0 {
-        w.WriteHeader(http.StatusCreated)
-        wmsg = "NO CHANGE"
-    } else {
-        w.WriteHeader(http.StatusCreated)
-        wmsg = fmt.Sprintf(`%d %s`, result.DeletedCount, string(body) )
+        _, bmsg := FbadMsg("DeleteNode->db.DeleteNode->"+err.Error())
+        w.Write(bmsg)
+        return
     }
-    w.Write([]byte(wmsg))
-}
 
-func GetAllNodes(w http.ResponseWriter, r *http.Request) {
-    var wmsg string
-    var nodes []node.Node
-    nodes, err := db.GetAllNodes()
-    if err != nil {
+    if err := d.RemoveNode(id); err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("GetAllNodes:db.GetAllNodes %s", err.Error())
-        w.Write([]byte(wmsg))
+        _, bmsg := FbadMsg("DeleteNode->d.RemoveNode->"+err.Error())
+        w.Write(bmsg)
         return
     }
-    resp, err := json.Marshal(nodes)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("GetAllNodes:json.Marshal %s", err.Error())
-        w.Write([]byte(wmsg))
-        return
-    }
-    w.Write(resp)
+
+    w.WriteHeader(http.StatusOK)
+    _, bmsg := FgoodMsg(fmt.Sprintf("deleted %d", id))
+    w.Write(bmsg)
 }
 
 func NewNode (w http.ResponseWriter, r *http.Request) {
-    var wmsg string
-    body, err := io.ReadAll(r.Body)
-    if err != nil {
-        w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("NewNode:io.ReadAll %s", err.Error())
-        w.Write([]byte(wmsg))
-        return
-    }
-
     n := node.NewNode()
-    err = json.Unmarshal(body, &n)
+    id, err := db.GetNextNodeID()
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("NewNode:json.Unmarshal %s", err.Error())
-        w.Write([]byte(wmsg))
+        _, bmsg := FbadMsg("NewNode->db.GetNextNodeID->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+    n.Id = id
+    
+    result, err := db.InsertNode(n)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("NewNode->db.InsertNode->"+err.Error())
+        w.Write(bmsg)
         return
     }
 
-    result, err := db.InsertNewNode(n)
+    d.AddNode(n)
+    w.WriteHeader(http.StatusCreated)
+    _, bmsg := FgoodMsg(fmt.Sprintf("inserted %s", result.InsertedID))
+    w.Write(bmsg)
+}
+
+func GetNode(w http.ResponseWriter, r *http.Request) {
+    id, err := strconv.Atoi(chi.URLParam(r, "id"))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("NewNode:db.InsertNewNode %s", err.Error())
-    } else {
-        w.WriteHeader(http.StatusCreated)
-        wmsg = fmt.Sprintf("%s", result.InsertedID)
+        _, bmsg := FbadMsg("GetNode->strconv.Atoi->"+err.Error())
+        w.Write(bmsg)
+        return
     }
-    w.Write([]byte(wmsg))
+
+    n, err := db.GetNode(id)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("GetNode->db.GetNode->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    jnode, err := json.Marshal(n)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("GetNode->json.Marshal->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
+    w.Write(jnode)
+}
+
+func GetNodes(w http.ResponseWriter, r *http.Request) {
+    nodes, err := db.GetNodes()
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("GetNodes->db.GetNode->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    jnodes, err := json.Marshal(nodes)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("GetNodes->json.Marshal->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
+    w.Write(jnodes)
+}
+
+func StartNode(w http.ResponseWriter, r *http.Request) {
+    id, err := strconv.Atoi(chi.URLParam(r, "id"))
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("StartNode->strconv.Atoi->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    n, err := d.StartNode(id)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("StartNode->d.StartNode->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    res, err := db.UpdateNode(n)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("StartNode->db.UpdateNode->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    if res.ModifiedCount == 0 {
+        _, bmsg := FgoodMsg("no changes were made.")
+        w.Write(bmsg)
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+    _, bmsg := FgoodMsg(fmt.Sprintf("started %d.", n.Id))
+    w.Write(bmsg)
+}
+
+func StopNode(w http.ResponseWriter, r *http.Request) {
+    id, err := strconv.Atoi(chi.URLParam(r, "id"))
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("StopNode->strconv.Atoi->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    n, err := d.StopNode(id)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("StopNode->d.StopNode->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    res, err := db.UpdateNode(n)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("StopNode->db.UpdateNode->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    if res.ModifiedCount == 0 {
+        _, bmsg := FgoodMsg("no changes were made.")
+        w.Write(bmsg)
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+    _, bmsg := FgoodMsg(fmt.Sprintf("stopped %d.", n.Id))
+    w.Write(bmsg)
+
 }
 
 func UpdateNode (w http.ResponseWriter, r *http.Request) {
-    var wmsg string
+    id, err := strconv.Atoi(chi.URLParam(r, "id"))
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("UpdateNode->strconv.Atoi->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
     body, err := io.ReadAll(r.Body)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("UpdateNode:io.ReadAll %s", err.Error())
-        w.Write([]byte(wmsg))
+        _, bmsg := FbadMsg("UpdateNode->io.ReadAll->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+    
+    var b map[string]string
+    if err = json.Unmarshal(body, &b); err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("UpdateNode->json.Marshal->"+err.Error())
+        w.Write(bmsg)
         return
     }
 
-    var n node.Node
-    err = json.Unmarshal(body, &n)
-    if err != nil {
+    n, err := d.UpdateNode(id, b["name"], b["ip"], b["port"]);
+    if  err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("UpdateNode:json.Unmarshal %s", err.Error())
-        w.Write([]byte(wmsg))
+        _, bmsg := FbadMsg("UpdateNode->d.UpdateNode->"+err.Error())
+        w.Write(bmsg)
         return
     }
 
-    result, err := db.UpdateNode(n)
+    res, err := db.UpdateNode(n)
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
-        wmsg = fmt.Sprintf("UpdateNode:db.UpdateNode %s", err.Error())
-    } else if result.ModifiedCount == 0 {
-        w.WriteHeader(http.StatusCreated)
-        wmsg =  "NO CHANGE"
-    } else {
-        w.WriteHeader(http.StatusCreated)
-        wmsg = fmt.Sprintf(`%d %s`, result.ModifiedCount, n.Id)
+        _, bmsg := FbadMsg("UpdateNode->db.UpdateNode->"+err.Error())
+        w.Write(bmsg)
+        return
     }
-    w.Write([]byte(wmsg))
+
+    if res.ModifiedCount == 0 {
+        _, bmsg := FgoodMsg("no changes were made.")
+        w.Write(bmsg)
+        return
+    }
+    w.WriteHeader(http.StatusCreated)
+    _, bmsg := FgoodMsg(fmt.Sprintf("updated %d.", n.Id))
+    w.Write(bmsg)
+}
+
+//Helpers
+
+func FbadMsg (msg string) (string, []byte) {
+    fmt.Println("[!]", msg)
+	s := fmt.Sprintf(`{"type": "bad", "msg": "%s"}`, msg)
+	return s, []byte(s)
+}
+func FgoodMsg (msg string) (string, []byte) {
+    fmt.Println("[+]", msg)
+    msg = strings.ReplaceAll(msg, `"`, `\"`)
+	s := fmt.Sprintf(`{"type": "good", "msg": "%s"}`, msg)
+	return s, []byte(s)
 }
