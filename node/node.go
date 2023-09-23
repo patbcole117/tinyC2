@@ -115,14 +115,16 @@ func (n *Node) MarshalJSON() ([]byte, error) {
     return json.Marshal(&struct {
         Dob 		string 	`bson:"dob"		json:"dob"`
 		Hello 		string	`bson:"hello"	json:"hello"`
-		ChanDown 	string	`bson:"-" 		json:"-`
-		ChanUp 		string	`bson:"-" 		json:"-`
+		ChanDown 	string	`bson:"-" 		json:"-"`
+		ChanUp 		string	`bson:"-" 		json:"-"`
+		Server 		string 	`bson:"-" 		json:"-"`
         *Alias
     }{
         Dob: 		n.Dob.Format(time.RFC3339),
 		Hello: 		n.Hello.Format(time.RFC3339),
 		ChanDown: 	"-",
 		ChanUp: 	"-",
+		Server:		"-",
         Alias:  (*Alias)(n),
     })
 }

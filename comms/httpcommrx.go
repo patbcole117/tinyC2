@@ -56,17 +56,12 @@ func (rx *HTTPCommRX) ProvisionSrv() *http.Server {
 }
 
 func getRoot (w http.ResponseWriter, r *http.Request) {
-    msg, _ := io.ReadAll(r.Body)
-    fmt.Println("Recieved:")
-    fmt.Printf("%s\n", msg)
-    fmt.Println("Reply:")
     reply := map[string]string{
         "From": "Home",
         "Type": "job",
         "Ref": "1",
         "Content":"Do the thing"}    
     breply, _ := json.Marshal(reply) 
-    fmt.Println(string(breply))
     w.Write(breply)
 }
 

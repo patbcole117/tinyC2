@@ -7,10 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
-	//"strings"
-
-	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/patbcole117/tinyC2/node"
 )
@@ -18,12 +16,11 @@ import (
 var (
     db	            dbManager   = NewDBManager()
     url             string      = "127.0.0.1:8000"
-    d               Dispatcher = *NewDispatcher()
+    d               Dispatcher = NewDispatcher()
 )
 
 func Run() {
     r := chi.NewRouter()
-    r.Use(middleware.Logger)
     r.Get("/",                   Check)
     r.Get("/v1/l/",              GetNodes)
     r.Get("/v1/l/new/",          NewNode)
@@ -32,16 +29,25 @@ func Run() {
     r.Get("/v1/l/{id}/start/",   StartNode)
     r.Get("/v1/l/{id}/stop/",    StopNode)
     r.Get("/v1/l/{id}/x/",       DeleteNode)
-    fmt.Println("[+] ready")
+    fmt.Println("[+] API Ready")
     http.ListenAndServe(url, r)
 }
 
 func Check (w http.ResponseWriter, r *http.Request) {
-    _, bmsg := FgoodMsg("check.")
-    w.Write(bmsg)
+    LogRequest(r)
+    jnodes, err := json.Marshal(d.Nodes)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("Check->json.Marshal->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+    w.Write(jnodes)
 }
 
 func DeleteNode(w http.ResponseWriter, r *http.Request) {
+    LogRequest(r)
     id, err := strconv.Atoi(chi.URLParam(r, "id"))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
@@ -71,6 +77,7 @@ func DeleteNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func NewNode (w http.ResponseWriter, r *http.Request) {
+    LogRequest(r)
     n := node.NewNode()
     id, err := db.GetNextNodeID()
     if err != nil {
@@ -96,6 +103,7 @@ func NewNode (w http.ResponseWriter, r *http.Request) {
 }
 
 func GetNode(w http.ResponseWriter, r *http.Request) {
+    LogRequest(r)
     id, err := strconv.Atoi(chi.URLParam(r, "id"))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
@@ -125,6 +133,7 @@ func GetNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetNodes(w http.ResponseWriter, r *http.Request) {
+    LogRequest(r)
     nodes, err := db.GetNodes()
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
@@ -146,6 +155,7 @@ func GetNodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func StartNode(w http.ResponseWriter, r *http.Request) {
+    LogRequest(r)
     id, err := strconv.Atoi(chi.URLParam(r, "id"))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
@@ -176,11 +186,12 @@ func StartNode(w http.ResponseWriter, r *http.Request) {
         return
     }
     w.WriteHeader(http.StatusOK)
-    _, bmsg := FgoodMsg(fmt.Sprintf("started %d.", n.Id))
+    _, bmsg := FgoodMsg(fmt.Sprintf("started %d", n.Id))
     w.Write(bmsg)
 }
 
 func StopNode(w http.ResponseWriter, r *http.Request) {
+    LogRequest(r)
     id, err := strconv.Atoi(chi.URLParam(r, "id"))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
@@ -211,12 +222,13 @@ func StopNode(w http.ResponseWriter, r *http.Request) {
         return
     }
     w.WriteHeader(http.StatusOK)
-    _, bmsg := FgoodMsg(fmt.Sprintf("stopped %d.", n.Id))
+    _, bmsg := FgoodMsg(fmt.Sprintf("stopped %d", n.Id))
     w.Write(bmsg)
 
 }
 
 func UpdateNode (w http.ResponseWriter, r *http.Request) {
+    LogRequest(r)
     id, err := strconv.Atoi(chi.URLParam(r, "id"))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
@@ -263,12 +275,14 @@ func UpdateNode (w http.ResponseWriter, r *http.Request) {
         return
     }
     w.WriteHeader(http.StatusCreated)
-    _, bmsg := FgoodMsg(fmt.Sprintf("updated %d.", n.Id))
+    _, bmsg := FgoodMsg(fmt.Sprintf("updated %d", n.Id))
     w.Write(bmsg)
 }
 
 //Helpers
-
+func LogRequest(r *http.Request) {
+    fmt.Println("[>]", time.Now().Format(time.RFC1123Z), r.RemoteAddr, r.Method, r.Host + r.URL.Path)
+}
 func FbadMsg (msg string) (string, []byte) {
     fmt.Println("[!]", msg)
 	s := fmt.Sprintf(`{"type": "bad", "msg": "%s"}`, msg)

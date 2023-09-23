@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/patbcole117/tinyC2/beacon"
 	"github.com/patbcole117/tinyC2/node"
 )
 
@@ -16,11 +15,10 @@ var (
 type Dispatcher struct {
 	Nodes 	[]node.Node
 	db 		dbManager
-	ChanUp	chan beacon.Msg
 }
 
-func NewDispatcher() *Dispatcher {
-	d := &Dispatcher{
+func NewDispatcher() Dispatcher {
+	d := Dispatcher{
 		db: NewDBManager(),
 	}
 	d.Init()
@@ -28,12 +26,10 @@ func NewDispatcher() *Dispatcher {
 }
 
 func (d *Dispatcher) AddNode(n node.Node) {
-	fmt.Println("[+] AddNode", n.Id)
 	d.Nodes = append(d.Nodes, n)
 }
 
 func (d *Dispatcher) Init() error {
-	fmt.Println("[+] Init")
 	nodes, err := db.GetNodes()
 	if err != nil {
 		return err
@@ -44,52 +40,47 @@ func (d *Dispatcher) Init() error {
 			if err := d.Nodes[i].StartSrv(); err != nil {return err}
 		}
 	}
+	fmt.Println("[+] Dispatcher Ready")
 	return nil
 }
 
 func (d *Dispatcher) RemoveNode(id int) error {
-	fmt.Println("[+] RemoveNode")
 	for i := range d.Nodes {
         if d.Nodes[i].Id == id {
-           if err :=  d.Nodes[i].Server.StopSrv(); err != nil {return err}
+           if err :=  d.Nodes[i].StopSrv(); err != nil {return err}
 			d.Nodes = append(d.Nodes[:i], d.Nodes[i+1:]...)
-        } else {
-			return ErrNilNode
-		}
-    }
-    return nil
+			return nil
+        } 
+	}
+    return ErrNilNode
 }
 
 func (d *Dispatcher) StartNode(id int) (node.Node, error) {
-	fmt.Println("[+] StartNode")
 	var n node.Node
 	for i := range d.Nodes {
+		fmt.Println("[?]", id)
         if d.Nodes[i].Id == id {
            if err :=  d.Nodes[i].StartSrv(); err != nil {return n, err}
 		   n = d.Nodes[i]
-        } else {
-			return n, ErrNilNode
-		}
+		   return n, nil
+        }
     }
-    return n, nil
+    return n, ErrNilNode
 }
 
 func (d *Dispatcher) StopNode(id int) (node.Node, error) {
-	fmt.Println("[+] StopNode")
 	var n node.Node
 	for i := range d.Nodes {
         if d.Nodes[i].Id == id {
            if err :=  d.Nodes[i].StopSrv(); err != nil {return n, err}
 		   n = d.Nodes[i]
-        } else {
-			return n, ErrNilNode
-		}
+		   return n, nil
+        }
     }
-    return n, nil
+    return n, ErrNilNode
 }
 
 func (d *Dispatcher)UpdateNode(id int, name, ip, port string) (node.Node, error) {
-	fmt.Println("[+] UpdateNode")
 	var n node.Node
 	for i := range d.Nodes {
         if d.Nodes[i].Id == id {
@@ -108,9 +99,8 @@ func (d *Dispatcher)UpdateNode(id int, name, ip, port string) (node.Node, error)
 				if err := d.Nodes[i].StartSrv(); err != nil {return n, err}
 			}
 			n = d.Nodes[i]
-        } else {
-			return n, ErrNilNode
-		}
+			return n, nil
+        }
     }
-    return n, nil
+	return n, ErrNilNode
 }
