@@ -5,11 +5,11 @@ Author: Patrick Coleman
 Created: September 1st, 2023
 Updated: September 28th, 2023
 
-tinyC2 is a simple Command & Control applicaiton. I started this project to
-familiarize myself with Golang and Mongo. tinyC2 is true to its name; there
-isnt much bells and whistles. IF i manage to find time in the furure I plan
-to implement multiple network communication modes such as HTTPS, ICMP and
-perhaps some custom protocols.
+tinyC2 is a simple Command & Control  application.  I  started  this  project to
+familiarize myself with Golang and Mongo. tinyC2 is true to its name; there isnt
+many bells and whistles. If I manage to find time in the future I will implement 
+multiple network communication modes such as HTTPS, ICMP and perhaps some custom
+protocols.
 
 Below is a diagram of the system components which make tinyC2 possible.
 ################################################################################
@@ -52,28 +52,29 @@ Below is a diagram of the system components which make tinyC2 possible.
 ################################################################################
 
 From the bottom up Beacons (represented by "B" in the diagram) call out to Nodes
-(represented by "N" in the diagram). This call occurrs on a periodic adjustable
-interval. The communication is handled by a modular interface known as a
+(represented by "N" in the diagram).  This call occurs on a  periodic adjustable
+interval.  The  communication  is  handled by a  modular  interface  known  as a
 "CommsPackage". CommsPackages are designed to be hot-swapped out; they abstract
-away the complexities of networking protocols and allow the communications
-between beacon and node to be adjusted on the fly. This can be done for a variety
-of reasons including to obscure communications or enhance security.
+away the  complexities  of  networking  protocols  and allow the  communications
+between beacon  and node  to be adjusted  on the  fly. This can  be  done  for a
+variety of reasons including to  obscure  communications  or  enhance  security.
 
 The beacon messages are then transferred to the Node Dispatcher through a shared
-channel. The Node Dispatcher is responsible for managing a stable of Nodes and
-handling messages between the beacons and the Nodes. The Node Dispatcher will parse
-beacon messages, make requests to the DB Manager, and formulate replies for the Node
-to send back to the Beacon.
+channel. The Node Dispatcher is responsible for managing a stable of  Nodes  and
+handling messages between the beacons and the Nodes. The  Node  Dispatcher  will 
+parse beacon messages, make requests to the DB Manager,  and  formulate  replies 
+for the Node to send back to the Beacon.
 
 The DB Manager handles all direct database operations. It it utilized by the API
 and Node Dispatcher to save the state of the Node Stable as well as record Agent 
 Data, Queued Jobs, and log Messages.
 
-The API facilitates the managment of Nodes, Job Queueing, and querying of database
-information.
+The API facilitates the management of  Nodes,  Job  Queueing,  and  querying  of 
+database information. There is a small cli application I have  made  called  tc2 
+which I use for testing and quickly interacting with the API.
 
-On first start, the Node Dispatcher will query the database for listeners and load
-whatever listeners were opeartional prior to shutdown.
+On first start, the Node Dispatcher will query the  database  for  listeners and
+load whatever listeners were opeartional prior to shutdown.
 
 ################################################################################
 
@@ -149,7 +150,8 @@ Below is the entire flow of registration and completion of the first job.
 17. The DB responds with a job.
 18. The job is forwarded to the Dispatcher.
 19. The job is forwarded to the Node's Inbound Channel.
-20. The job is forwarded to the Beacon over a CommsPackage.
+20. The job is forwarded to the Beacon over a CommsPackage. The beacon will execute
+    the job and package the result into the next hello message.
 21 - 24. This is identical to steps 1 - 4. Except the Beacon's hello message now 
     contains the result of the job from step 20.
 25. The database returns a result; implying the beacon is registered.
