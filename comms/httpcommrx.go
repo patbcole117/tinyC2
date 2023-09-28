@@ -12,11 +12,16 @@ type HTTPCommRX struct {
     Ip      string
     Port    string
     Srv       *http.Server
+    ChanDown chan Msg
+    ChanUp  chan Msg
 }
-func NewHTTPCommRX(i, p string) *HTTPCommRX {
+
+func NewHTTPCommRX(i, p string) (*HTTPCommRX, *chan Msg, *chan Msg) {
     rx := HTTPCommRX{Ip: i, Port: p}
     rx.Srv = rx.ProvisionSrv()
-    return &rx
+    rx.ChanDown = make(chan Msg, 10)
+    rx.ChanUp = make(chan Msg, 10)
+    return &rx, &rx.ChanDown, &rx.ChanUp
 }
 
 func (rx *HTTPCommRX) StartSrv() error {
@@ -46,7 +51,7 @@ func (rx *HTTPCommRX) GetAddy() string {
 func (rx *HTTPCommRX) ProvisionSrv() *http.Server {
     addy := rx.GetAddy()
     mux := http.NewServeMux()
-    mux.HandleFunc("/", getRoot)
+    mux.HandleFunc("/", handle(rx))
     return &http.Server{
             Addr: addy,
             Handler: mux,
@@ -55,24 +60,22 @@ func (rx *HTTPCommRX) ProvisionSrv() *http.Server {
     } 
 }
 
-func getRoot (w http.ResponseWriter, r *http.Request) {
-    reply := map[string]string{
-        "From": "Home",
-        "Type": "job",
-        "Ref": "1",
-        "Content":"Do the thing"}    
-    breply, _ := json.Marshal(reply) 
-    w.Write(breply)
-}
-
-func urlEcho(w http.ResponseWriter, r *http.Request) {
-    var msg []byte
-    if r.Body != http.NoBody {
-        msg, _ = io.ReadAll(r.Body)
-    } else {
-        msg = []byte("No body in request.")
+func handle( rx *HTTPCommRX) func(w http.ResponseWriter, r *http.Request) {
+    return func(w http.ResponseWriter, r *http.Request) {
+        body, err := io.ReadAll(r.Body)
+        if err != nil {
+            fmt.Printf("[!] getRoot %s\n", err.Error())
+        }
+        var m Msg
+        err = json.Unmarshal(body, &m); if err != nil {
+            fmt.Printf("[!] getRoot %s\n", err.Error())
+        }
+        rx.ChanUp <- m
+        resp := <- rx.ChanDown
+        bresp, err := json.Marshal(resp)
+        if err != nil {
+            fmt.Printf("[!] getRoot %s\n", err.Error())
+        }
+        w.Write(bresp)
     }
-    h, _ := json.MarshalIndent(r.Header, "", "  ") 
-    reply := fmt.Sprintf("%s\n%s", msg, h)
-    w.Write([]byte(reply))
 }

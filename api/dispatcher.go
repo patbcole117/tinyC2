@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/patbcole117/tinyC2/node"
+	"github.com/patbcole117/tinyC2/comms"
 )
 
 var (
@@ -15,11 +16,13 @@ var (
 type Dispatcher struct {
 	Nodes 	[]node.Node
 	db 		dbManager
+	ChanUp chan comms.Msg
 }
 
 func NewDispatcher() Dispatcher {
 	d := Dispatcher{
 		db: NewDBManager(),
+		ChanUp: make(chan comms.Msg, DISPATCHER_CHAN_SIZE),
 	}
 	d.Init()
 	return d
@@ -39,6 +42,7 @@ func (d *Dispatcher) Init() error {
 		if d.Nodes[i].Status == node.LISTENING {
 			if err := d.Nodes[i].StartSrv(); err != nil {return err}
 		}
+		*d.Nodes[i].ChanUp = d.ChanUp
 	}
 	fmt.Println("[+] Dispatcher Ready")
 	return nil
@@ -58,7 +62,6 @@ func (d *Dispatcher) RemoveNode(id int) error {
 func (d *Dispatcher) StartNode(id int) (node.Node, error) {
 	var n node.Node
 	for i := range d.Nodes {
-		fmt.Println("[?]", id)
         if d.Nodes[i].Id == id {
            if err :=  d.Nodes[i].StartSrv(); err != nil {return n, err}
 		   n = d.Nodes[i]

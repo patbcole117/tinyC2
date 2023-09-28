@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/patbcole117/tinyC2/beacon"
+	"github.com/patbcole117/tinyC2/comms"
 	"github.com/patbcole117/tinyC2/node"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -51,7 +51,7 @@ func (db dbManager) DeleteNode(id int) (*mongo.DeleteResult, error) {
 	return result, nil
 }
 
-func (db dbManager) InsertMsg(msg beacon.Msg) (*mongo.InsertOneResult, error) {
+func (db dbManager) InsertMsg(msg comms.Msg) (*mongo.InsertOneResult, error) {
 	coll := db.c.Database("tinyC2").Collection("Messages")
 	res, err := coll.InsertOne(context.TODO(), msg)
 	if err != nil {
@@ -80,14 +80,14 @@ func (db dbManager) GetNode(id int) (*node.Node, error) {
 	return &n, nil
 }
 
-func (db dbManager) GetMsgs() ([]beacon.Msg, error) {
+func (db dbManager) GetMsgs() ([]comms.Msg, error) {
 	coll := db.c.Database("tinyC2").Collection("Messages")
 	cursor, err := coll.Find(context.TODO(), bson.D{})
 	if err != nil {
 		return nil, err
 	}
 
-	var msgs []beacon.Msg
+	var msgs []comms.Msg
 	if err = cursor.All(context.TODO(), &msgs); err != nil {
 		return nil, err
 	}

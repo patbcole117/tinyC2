@@ -14,6 +14,13 @@ var (
     ErrCommDNE error = errors.New("Comms package does not exist")
 )
 
+type Msg struct {
+	From    string
+	Type    string
+	Ref     string
+	Content string
+}
+
 type CommsPackageTX interface {
     SendJSON(dst string, msg interface{}) (*http.Response, error)
     Get(dst string) (*http.Response, error)

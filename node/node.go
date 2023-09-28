@@ -3,12 +3,9 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/rand"
-	"net/http"
 	"time"
 
-	"github.com/patbcole117/tinyC2/beacon"
 	"github.com/patbcole117/tinyC2/comms"
 )
 
@@ -32,24 +29,29 @@ type Node struct {
 	Status 		string      		`bson:"status"	json:"status"`
     Dob     	time.Time			`bson:"dob"		json:"dob"`
 	Hello 		time.Time			`bson:"hello"	json:"hello"`
-	ChanUp		chan beacon.Msg		`bson:"-" 		json:"-`
-	ChanDown	chan beacon.Msg		`bson:"-" 		json:"-`
+	ChanUp		*chan comms.Msg		`bson:"-" 		json:"-`
+	ChanDown	*chan comms.Msg		`bson:"-" 		json:"-`
 	Server 		*comms.HTTPCommRX   `bson:"-" 		json:"-"`
 }
 
-func NewNode() Node {
+func NewNode(ch chan comms.Msg) Node {
 	n := Node {
 	Ip:			SERVER_DEFAULT_IP,
 	Port:		SERVER_DEFAULT_PORT,
 	Status:		STOPPED,
-	ChanUp: 	make(chan beacon.Msg, NODE_DEFAULT_CHAN_SIZE),
-	ChanDown: 	make(chan beacon.Msg, NODE_DEFAULT_CHAN_SIZE),
 	}
     n.Dob = time.Now()
 	n.Hello = time.Now()
-	n.Server = comms.NewHTTPCommRX(n.Ip, n.Port)
 	n.initName(SERVER_DEFAULT_NAME_SIZE)
+	n.Server , n.ChanDown, n.ChanUp = comms.NewHTTPCommRX(n.Ip, n.Port)
 	return n
+}
+
+func (n *Node) MainLoop() error {
+	for {
+		msg := <- *n.ChanUp
+		fmt.Printf("[+] %s MainLoop %+v\n", n.Name, msg)
+	}
 }
 
 func (n *Node) initName(sz int) {
@@ -62,11 +64,12 @@ func (n *Node) initName(sz int) {
 }
 
 func (n *Node) StartSrv() error {
-	n.Server = comms.NewHTTPCommRX(n.Ip, n.Port)
+	n.Server , n.ChanDown, n.ChanUp = comms.NewHTTPCommRX(n.Ip, n.Port)
 	if err := n.Server.StartSrv(); err != nil {
 		return err
 	}
 	n.Status = LISTENING
+	go n.MainLoop()
 	return nil
 }
 
@@ -104,9 +107,7 @@ func (n *Node) UnmarshalJSON(j []byte) error {
     }
 	n.Hello 	= t
 
-	n.ChanUp 	= make(chan beacon.Msg, NODE_DEFAULT_CHAN_SIZE)
-	n.ChanDown 	= make(chan beacon.Msg, NODE_DEFAULT_CHAN_SIZE)
-	n.Server = comms.NewHTTPCommRX(n.Ip, n.Port)
+	n.Server , n.ChanDown, n.ChanUp = comms.NewHTTPCommRX(n.Ip, n.Port)
     return nil
 }
 
@@ -135,10 +136,4 @@ func (n *Node) ToJsonPretty() (string) {
 		return string(make([]byte, 0))
 	}
 	return string(b)
-}
-
-func (n *Node) urlRoot(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Date", time.Now().Format(time.UnixDate))
-	msg := fmt.Sprintf("[+] Hello from %s.\n", n.Name)
-	io.WriteString(w, msg)
 }

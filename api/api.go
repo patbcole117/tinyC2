@@ -17,6 +17,7 @@ var (
     db	            dbManager   = NewDBManager()
     url             string      = "127.0.0.1:8000"
     d               Dispatcher = NewDispatcher()
+    BEACON_CHANNEL_LIMIT int           = 10
 )
 
 func Run() {
@@ -78,7 +79,7 @@ func DeleteNode(w http.ResponseWriter, r *http.Request) {
 
 func NewNode (w http.ResponseWriter, r *http.Request) {
     LogRequest(r)
-    n := node.NewNode()
+    n := node.NewNode(d.ChanUp)
     id, err := db.GetNextNodeID()
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
