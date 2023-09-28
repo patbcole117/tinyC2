@@ -56,7 +56,7 @@ func (b *Beacon) initName(sz int) {
 func (b *Beacon) Run() {
 	for {
 		b.SayHello()
-		//b.DoNext()
+		b.DoNext()
 		time.Sleep(BEACON_SLEEP_TIME)
 	}
 }
@@ -96,10 +96,12 @@ func (b *Beacon) SayHello() {
 }
 
 func (b *Beacon) DoNext() {
-	m := <-b.InQ
-	// Do the thing
-	// TODO = result
-	b.OutQ <- comms.Msg{From: b.Name, To: b.Home, Type: "result", Ref: m.Ref, Content: "TODO"}
+	select{
+	case j := <- b.InQ:
+		b.OutQ <- comms.Msg{From: b.Name, To: b.Home, Type: "result", Ref: j.Ref, Content: "TODO"}
+	default:
+		
+	}
 }
 
 func (b *Beacon) UnmarshalJSON(j []byte) error {
