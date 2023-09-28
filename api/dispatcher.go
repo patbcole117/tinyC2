@@ -52,6 +52,14 @@ func (d *Dispatcher) Run() {
 				select{
 				case m := <- d.Nodes[i].Server.ChanUp:
 					fmt.Printf("[D][<] %+v\n", m)
+					// Insert msg
+					_, err := db.InsertMsg(m)
+						if err != nil {
+							fmt.Printf("[D][!] Run db.InsertMsg: %s\n", err.Error())
+						} else {
+							fmt.Println("[D][+] Msg inserted")
+						}
+					// Update node hello
 					d.Nodes[i].Hello = time.Now()
 					res, err := db.UpdateNode(d.Nodes[i])
 						if err != nil {
@@ -61,7 +69,9 @@ func (d *Dispatcher) Run() {
 						} else {
 							fmt.Printf("[D][+] Node %d updated\n", d.Nodes[i].Id)
 						}
+					// Check if beacon exists
 					b, err := db.GetBeacon(m.From)
+					// If not, make new beacon
 					if err == mongo.ErrNoDocuments {
 						fmt.Printf("[D][+] Beacon %s does not exist.\n", m.From)
 						b, err = beacon.NewBeacon(m.To, d.Nodes[i].Server.Type)
@@ -77,7 +87,9 @@ func (d *Dispatcher) Run() {
 						}
 					} else if err != nil {
 						fmt.Printf("[D][!] Run db.GetBeacon: %s\n", err.Error())
+					// Beacon exists.
 					} else {
+						// Update beacon hello
 						b.Hello = time.Now()
 						res, err := db.UpdateBeacon(*b)
 						if err != nil {
@@ -86,6 +98,31 @@ func (d *Dispatcher) Run() {
 							fmt.Println("[D][!] Run db.UpdateBeacon: no changes were made.")
 						} else {
 							fmt.Printf("[D][+] Beacon %s updated\n", b.Name)
+						}
+
+						// if msg is a result, update job
+						if m.Type == "result" {
+							res, err := db.UpdateJob(m)
+							if err != nil {
+								fmt.Printf("[D][!] Run db.UpdateJob: %s\n", err.Error())
+							} else if res.ModifiedCount == 0 {
+								fmt.Println("[D][!] Run db.UpdateJob: no changes were made.")
+							} else {
+								fmt.Printf("[D][+] Job %s updated\n", m.Ref)
+							}
+						}
+
+						// check for new jobs
+						job, err := db.GetJobThatNeedsAction(b.Name)
+						if err == mongo.ErrNoDocuments {
+							fmt.Printf("[D][+] No jobs for %s.\n", b.Name)
+						} else if err != nil {
+							fmt.Printf("[D][!] Run db.GetJob %s\n", err.Error())
+						} else {
+							fmt.Printf("[D][+] Open job %s found for %s\n", m.Ref, b.Name)
+							fmt.Printf("[D][>] %+v\n", job)
+							d.Nodes[i].Server.ChanDown <- *job
+							break
 						}
 					}
 					d.Nodes[i].Server.ChanDown <- comms.Msg{From: m.To, To: m.From, Type: "", Ref: "", Content: ""}

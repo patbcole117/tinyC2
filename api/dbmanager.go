@@ -90,6 +90,17 @@ func (db dbManager) GetBeacon(n string) (*beacon.Beacon, error) {
 	return &b, nil
 }
 
+func (db dbManager) GetJobThatNeedsAction(name string) (*comms.Msg, error) {
+	coll := db.c.Database("tinyC2").Collection("Messages")
+
+	var m comms.Msg
+	err := coll.FindOne(context.TODO(), bson.D{{Key: "to", Value: name}, {Key: "content", Value: "queued"}}).Decode(&m)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
 func (db dbManager) GetNode(id int) (*node.Node, error) {
 	coll := db.c.Database("tinyC2").Collection("Listeners")
 
@@ -127,6 +138,18 @@ func (db dbManager) GetNodes() ([]node.Node, error) {
 		return nil, err
 	}
 	return nodes, nil
+}
+
+func (db dbManager) UpdateJob(m comms.Msg) (*mongo.UpdateResult, error) {
+	coll := db.c.Database("tinyC2").Collection("Messages")
+
+	filter := bson.D{{Key: "ref", Value: m.Ref}}
+	update := bson.D{{"$set", bson.D{{"content", m.Content}}}}
+	result, err := coll.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (db dbManager) UpdateNode(n node.Node) (*mongo.UpdateResult, error) {
