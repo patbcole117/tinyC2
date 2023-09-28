@@ -16,6 +16,7 @@ var (
 
 type Msg struct {
 	From    string
+    To      string
 	Type    string
 	Ref     string
 	Content string

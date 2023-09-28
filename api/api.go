@@ -14,10 +14,10 @@ import (
 )
 
 var (
-    db	            dbManager   = NewDBManager()
-    url             string      = "127.0.0.1:8000"
-    d               Dispatcher = NewDispatcher()
-    BEACON_CHANNEL_LIMIT int           = 10
+    db	                    dbManager   = NewDBManager()
+    url                     string      = "127.0.0.1:8000"
+    d                       Dispatcher  = NewDispatcher()
+    BEACON_CHANNEL_LIMIT    int         = 10
 )
 
 func Run() {
@@ -30,7 +30,8 @@ func Run() {
     r.Get("/v1/l/{id}/start/",   StartNode)
     r.Get("/v1/l/{id}/stop/",    StopNode)
     r.Get("/v1/l/{id}/x/",       DeleteNode)
-    fmt.Println("[+] API Ready")
+    fmt.Println("[A][+] API Ready")
+    go d.Run()
     http.ListenAndServe(url, r)
 }
 
@@ -79,7 +80,7 @@ func DeleteNode(w http.ResponseWriter, r *http.Request) {
 
 func NewNode (w http.ResponseWriter, r *http.Request) {
     LogRequest(r)
-    n := node.NewNode(d.ChanUp)
+    n := node.NewNode()
     id, err := db.GetNextNodeID()
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
@@ -282,15 +283,15 @@ func UpdateNode (w http.ResponseWriter, r *http.Request) {
 
 //Helpers
 func LogRequest(r *http.Request) {
-    fmt.Println("[>]", time.Now().Format(time.RFC1123Z), r.RemoteAddr, r.Method, r.Host + r.URL.Path)
+    fmt.Println("[A][>]", time.Now().Format(time.RFC1123Z), r.RemoteAddr, r.Method, r.Host + r.URL.Path)
 }
 func FbadMsg (msg string) (string, []byte) {
-    fmt.Println("[!]", msg)
+    fmt.Println("[A][!]", msg)
 	s := fmt.Sprintf(`{"type": "bad", "msg": "%s"}`, msg)
 	return s, []byte(s)
 }
 func FgoodMsg (msg string) (string, []byte) {
-    fmt.Println("[+]", msg)
+    fmt.Println("[A][+]", msg)
     msg = strings.ReplaceAll(msg, `"`, `\"`)
 	s := fmt.Sprintf(`{"type": "good", "msg": "%s"}`, msg)
 	return s, []byte(s)

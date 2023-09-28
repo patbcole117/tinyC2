@@ -2,7 +2,6 @@ package node
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -18,7 +17,6 @@ const (
 	SERVER_DEFAULT_PORT    		string          = "80"
 	SERVER_DEFAULT_TIMEOUT 		time.Duration 	= 3 * time.Second
 	SERVER_DEFAULT_NAME_SIZE 	int 			= 10
-	NODE_DEFAULT_CHAN_SIZE 		int 			= 10
 )
 
 type Node struct {
@@ -29,12 +27,10 @@ type Node struct {
 	Status 		string      		`bson:"status"	json:"status"`
     Dob     	time.Time			`bson:"dob"		json:"dob"`
 	Hello 		time.Time			`bson:"hello"	json:"hello"`
-	ChanUp		*chan comms.Msg		`bson:"-" 		json:"-`
-	ChanDown	*chan comms.Msg		`bson:"-" 		json:"-`
 	Server 		*comms.HTTPCommRX   `bson:"-" 		json:"-"`
 }
 
-func NewNode(ch chan comms.Msg) Node {
+func NewNode() Node {
 	n := Node {
 	Ip:			SERVER_DEFAULT_IP,
 	Port:		SERVER_DEFAULT_PORT,
@@ -43,15 +39,8 @@ func NewNode(ch chan comms.Msg) Node {
     n.Dob = time.Now()
 	n.Hello = time.Now()
 	n.initName(SERVER_DEFAULT_NAME_SIZE)
-	n.Server , n.ChanDown, n.ChanUp = comms.NewHTTPCommRX(n.Ip, n.Port)
+	n.Server = comms.NewHTTPCommRX(n.Ip, n.Port)
 	return n
-}
-
-func (n *Node) MainLoop() error {
-	for {
-		msg := <- *n.ChanUp
-		fmt.Printf("[+] %s MainLoop %+v\n", n.Name, msg)
-	}
 }
 
 func (n *Node) initName(sz int) {
@@ -64,12 +53,11 @@ func (n *Node) initName(sz int) {
 }
 
 func (n *Node) StartSrv() error {
-	n.Server , n.ChanDown, n.ChanUp = comms.NewHTTPCommRX(n.Ip, n.Port)
+	n.Server = comms.NewHTTPCommRX(n.Ip, n.Port)
 	if err := n.Server.StartSrv(); err != nil {
 		return err
 	}
 	n.Status = LISTENING
-	go n.MainLoop()
 	return nil
 }
 
@@ -107,7 +95,7 @@ func (n *Node) UnmarshalJSON(j []byte) error {
     }
 	n.Hello 	= t
 
-	n.Server , n.ChanDown, n.ChanUp = comms.NewHTTPCommRX(n.Ip, n.Port)
+	n.Server = comms.NewHTTPCommRX(n.Ip, n.Port)
     return nil
 }
 
@@ -128,12 +116,4 @@ func (n *Node) MarshalJSON() ([]byte, error) {
 		Server:		"-",
         Alias:  (*Alias)(n),
     })
-}
-
-func (n *Node) ToJsonPretty() (string) {
-	b, err := json.MarshalIndent(n, "", "    ")
-	if err != nil {
-		return string(make([]byte, 0))
-	}
-	return string(b)
 }

@@ -8,20 +8,23 @@ import (
     "time"
 )
 
+var HTTPRX_CHAN_SIZE = 10
+
 type HTTPCommRX struct {
-    Ip      string
-    Port    string
-    Srv       *http.Server
-    ChanDown chan Msg
-    ChanUp  chan Msg
+    Ip          string
+    Port        string
+    Srv         *http.Server
+    Type        string
+    ChanDown    chan Msg
+    ChanUp      chan Msg
 }
 
-func NewHTTPCommRX(i, p string) (*HTTPCommRX, *chan Msg, *chan Msg) {
-    rx := HTTPCommRX{Ip: i, Port: p}
+func NewHTTPCommRX(i, p string) (*HTTPCommRX) {
+    rx := HTTPCommRX{Ip: i, Port: p, Type: "http"}
     rx.Srv = rx.ProvisionSrv()
-    rx.ChanDown = make(chan Msg, 10)
-    rx.ChanUp = make(chan Msg, 10)
-    return &rx, &rx.ChanDown, &rx.ChanUp
+    rx.ChanDown = make(chan Msg, HTTPRX_CHAN_SIZE)
+    rx.ChanUp = make(chan Msg, HTTPRX_CHAN_SIZE)
+    return &rx
 }
 
 func (rx *HTTPCommRX) StartSrv() error {

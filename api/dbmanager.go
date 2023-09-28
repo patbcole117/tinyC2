@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/patbcole117/tinyC2/beacon"
 	"github.com/patbcole117/tinyC2/comms"
 	"github.com/patbcole117/tinyC2/node"
 	"go.mongodb.org/mongo-driver/bson"
@@ -60,6 +61,15 @@ func (db dbManager) InsertMsg(msg comms.Msg) (*mongo.InsertOneResult, error) {
 	return res, nil
 }
 
+func (db dbManager) InsertBeacon(b beacon.Beacon) (*mongo.InsertOneResult, error) {
+	coll := db.c.Database("tinyC2").Collection("Beacons")
+	res, err := coll.InsertOne(context.TODO(), b)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (db dbManager) InsertNode(n node.Node) (*mongo.InsertOneResult, error) {
 	coll := db.c.Database("tinyC2").Collection("Listeners")
 	res, err := coll.InsertOne(context.TODO(), n)
@@ -67,6 +77,17 @@ func (db dbManager) InsertNode(n node.Node) (*mongo.InsertOneResult, error) {
 		return nil, err
 	}
 	return res, nil
+}
+
+func (db dbManager) GetBeacon(n string) (*beacon.Beacon, error) {
+	coll := db.c.Database("tinyC2").Collection("Beacons")
+
+	var b beacon.Beacon
+	err := coll.FindOne(context.TODO(), bson.D{{Key: "name", Value: n}}).Decode(&b)
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
 }
 
 func (db dbManager) GetNode(id int) (*node.Node, error) {
@@ -113,7 +134,19 @@ func (db dbManager) UpdateNode(n node.Node) (*mongo.UpdateResult, error) {
 
 	filter := bson.D{{Key: "id", Value: n.Id}}
 	update := bson.D{{"$set", bson.D{{"name", n.Name}, {"ip", n.Ip}, {"port", n.Port},
-		{"status", n.Status}}}}
+		{"status", n.Status}, {"hello", n.Hello}}}}
+	result, err := coll.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (db dbManager) UpdateBeacon(b beacon.Beacon) (*mongo.UpdateResult, error) {
+	coll := db.c.Database("tinyC2").Collection("Beacons")
+
+	filter := bson.D{{Key: "name", Value: b.Name}}
+	update := bson.D{{"$set", bson.D{{"name", b.Name}, {"home", b.Home}, {"hello", b.Hello}}}}
 	result, err := coll.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		return nil, err
