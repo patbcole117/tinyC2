@@ -8,7 +8,7 @@ Updated: September 28th, 2023
 tinyC2 is a simple Command & Control  application.  I  started  this  project to
 familiarize myself with Golang and Mongo. tinyC2 is true to its name; there isnt
 many bells and whistles. If I manage to find time in the future I will implement 
-multiple network communication modes such as HTTPS, ICMP and perhaps some custom
+more network communication modes such as HTTPS and perhaps some custom
 protocols.
 
 Below is a diagram of the system components which make tinyC2 possible.
